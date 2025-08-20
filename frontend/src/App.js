@@ -324,7 +324,7 @@ const HomePage = () => {
             <Card className="text-center">
               <CardContent className="pt-6">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <TurkishLira className="h-6 w-6 text-green-600" />
+                  <DollarSign className="h-6 w-6 text-green-600" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Adil Komisyon</h3>
                 <p className="text-gray-600">
