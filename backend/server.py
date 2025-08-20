@@ -301,6 +301,80 @@ async def login(login_data: UserLogin):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
+# File Upload Endpoints
+@api_router.post("/upload/images")
+async def upload_images(
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload multiple images for properties"""
+    try:
+        uploaded_files = []
+        
+        for file in files:
+            # Validate file type
+            if not file.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail=f"File {file.filename} is not an image")
+            
+            # Generate unique filename
+            file_extension = file.filename.split('.')[-1].lower()
+            if file_extension not in ['jpg', 'jpeg', 'png', 'webp']:
+                raise HTTPException(status_code=400, detail=f"Unsupported image format: {file_extension}")
+            
+            unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
+            file_path = IMAGES_DIR / unique_filename
+            
+            # Save file
+            content = await file.read()
+            async with aiofiles.open(file_path, 'wb') as f:
+                await f.write(content)
+            
+            # Optimize image
+            await optimize_image(file_path)
+            
+            # Store relative URL
+            image_url = f"/uploads/images/{unique_filename}"
+            uploaded_files.append({
+                "filename": file.filename,
+                "url": image_url,
+                "size": len(content)
+            })
+        
+        return {
+            "message": f"Successfully uploaded {len(uploaded_files)} images",
+            "files": uploaded_files
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@api_router.put("/properties/{property_id}/images")
+async def update_property_images(
+    property_id: str,
+    image_urls: List[str] = Form(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Update property images"""
+    property_doc = await db.properties.find_one({"id": property_id})
+    if not property_doc:
+        raise HTTPException(status_code=404, detail="Property not found")
+    
+    if property_doc['owner_id'] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Update images
+    await db.properties.update_one(
+        {"id": property_id},
+        {
+            "$set": {
+                "images": image_urls,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {"message": "Property images updated successfully", "images": image_urls}
+
 # Property endpoints
 @api_router.post("/properties", response_model=Property)
 async def create_property(property_data: PropertyCreate, current_user: User = Depends(get_current_user)):
