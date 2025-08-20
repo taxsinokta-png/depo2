@@ -147,7 +147,7 @@ class EvimKiradaAPITester:
         """Test user login functionality"""
         print("\n🔑 Testing User Login...")
         
-        if not self.tenant_user or not self.owner_user:
+        if not self.tenant_user or not self.owner_user or not self.admin_user:
             self.log_test("Login Test Setup", False, "Users not registered")
             return False
             
@@ -172,6 +172,17 @@ class EvimKiradaAPITester:
         self.log_test("Owner Login", success and 'access_token' in response)
         if success:
             self.owner_token = response['access_token']
+            
+        # Test admin login
+        login_data = {
+            "email": self.admin_user["email"],
+            "password": "testpass123"
+        }
+        
+        success, response, status = self.make_request('POST', 'auth/login', login_data)
+        self.log_test("Admin Login", success and 'access_token' in response)
+        if success:
+            self.admin_token = response['access_token']
             
         # Test invalid credentials
         invalid_login = {
