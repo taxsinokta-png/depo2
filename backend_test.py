@@ -647,14 +647,21 @@ class EvimKiradaAPITester:
             self.test_user_registration,
             self.test_user_login,
             self.test_auth_me_endpoint,
+            # NEW IMAGE UPLOAD SYSTEM TESTS
+            self.test_image_upload_system,
             self.test_property_creation,
+            self.test_property_image_update,
             self.test_property_status_update,
             self.test_property_listing,
             self.test_property_detail,
             self.test_my_properties,
             self.test_application_creation,
             self.test_applications_listing,
-            # NEW PAYMENT SYSTEM TESTS
+            # NEW ADMIN PANEL TESTS
+            self.test_admin_panel_endpoints,
+            # NEW ENHANCED APPLICATION MANAGEMENT TESTS
+            self.test_enhanced_application_management,
+            # EXISTING PAYMENT SYSTEM TESTS
             self.test_payment_initialization,
             self.test_payment_completion,
             self.test_payment_history,
