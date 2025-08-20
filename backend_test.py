@@ -37,21 +37,34 @@ class EvimKiradaAPITester:
         else:
             print(f"❌ {name} - FAILED: {details}")
         
-    def make_request(self, method, endpoint, data=None, token=None, expected_status=200):
+    def make_request(self, method, endpoint, data=None, token=None, expected_status=200, files=None):
         """Make HTTP request with proper headers"""
         url = f"{self.base_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        headers = {}
         
         if token:
             headers['Authorization'] = f'Bearer {token}'
+            
+        # Handle file uploads
+        if files:
+            # Don't set Content-Type for multipart/form-data - requests will set it
+            pass
+        else:
+            headers['Content-Type'] = 'application/json'
             
         try:
             if method == 'GET':
                 response = requests.get(url, headers=headers)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers)
+                if files:
+                    response = requests.post(url, files=files, headers=headers)
+                else:
+                    response = requests.post(url, json=data, headers=headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers)
+                if files:
+                    response = requests.put(url, files=files, headers=headers)
+                else:
+                    response = requests.put(url, json=data, headers=headers)
             elif method == 'DELETE':
                 response = requests.delete(url, headers=headers)
                 
