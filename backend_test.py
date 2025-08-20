@@ -387,12 +387,7 @@ class EvimKiradaAPITester:
             return False
             
         # Test successful payment completion
-        completion_data = {
-            "payment_token": self.payment_token,
-            "status": "success"
-        }
-        
-        success, response, status = self.make_request('POST', 'payment/complete', completion_data)
+        success, response, status = self.make_request('POST', f'payment/complete?payment_token={self.payment_token}&status=success')
         self.log_test("Payment Completion Success", success and response.get('status') == 'success')
         
         if success:
@@ -401,12 +396,7 @@ class EvimKiradaAPITester:
             print(f"   Owner Payment: {commission_processed.get('owner_payment', 0)}")
             
         # Test failed payment completion
-        failed_completion_data = {
-            "payment_token": self.payment_token + "_invalid",
-            "status": "failed"
-        }
-        
-        success, response, status = self.make_request('POST', 'payment/complete', failed_completion_data, expected_status=404)
+        success, response, status = self.make_request('POST', f'payment/complete?payment_token={self.payment_token}_invalid&status=failed', expected_status=404)
         self.log_test("Invalid Payment Token Rejection", not success and status == 404)
 
     def test_payment_history(self):
