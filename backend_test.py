@@ -309,35 +309,130 @@ class EvimKiradaAPITester:
         success, response, status = self.make_request('GET', 'applications', token=self.owner_token)
         self.log_test("Owner Applications Listing", success and isinstance(response, list))
 
-    def test_kyc_process(self):
-        """Test KYC processing"""
-        print("\n🔍 Testing KYC Process...")
+    def test_payment_initialization(self):
+        """Test payment initialization (NEW PAYMENT SYSTEM)"""
+        print("\n💳 Testing Payment Initialization...")
         
         if not self.test_application_id or not self.tenant_token:
-            self.log_test("KYC Process Test Setup", False, "Missing application or tenant token")
+            self.log_test("Payment Initialization Test Setup", False, "Missing application or tenant token")
             return False
             
-        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/kyc', token=self.tenant_token)
-        self.log_test("KYC Processing", success and 'score' in response and 'status' in response)
+        # Create a booking first (using application as booking_id for testing)
+        booking_data = {
+            "id": self.test_application_id,
+            "property_id": self.test_property_id,
+            "tenant_id": self.tenant_user["id"],
+            "proposed_rent": 8500.0
+        }
+        
+        # Test payment initialization
+        payment_data = {
+            "booking_id": self.test_application_id,
+            "user_ip": "127.0.0.1"
+        }
+        
+        success, response, status = self.make_request('POST', 'payment/initialize', payment_data, token=self.tenant_token)
+        self.log_test("Payment Initialization", success and 'payment_token' in response)
         
         if success:
-            kyc_score = response.get('score', 0)
-            kyc_status = response.get('status', '')
-            print(f"   KYC Score: {kyc_score}/100")
-            print(f"   KYC Status: {kyc_status}")
+            self.payment_token = response.get('payment_token')
+            commission_breakdown = response.get('commission_breakdown', {})
             
-            # Verify score is in expected range (60-95)
-            score_valid = 60 <= kyc_score <= 95
-            self.log_test("KYC Score Range Validation", score_valid)
+            print(f"   Payment Token: {self.payment_token}")
+            print(f"   Total Amount: {commission_breakdown.get('total', 0)}")
+            print(f"   Platform Commission (40%): {commission_breakdown.get('platform_commission', 0)}")
+            print(f"   Owner Amount (60%): {commission_breakdown.get('owner_amount', 0)}")
             
-            # Verify status logic (approved if >= 75)
-            expected_status = "approved" if kyc_score >= 75 else "rejected"
-            status_correct = kyc_status == expected_status
-            self.log_test("KYC Status Logic Validation", status_correct)
+            # Verify commission calculation (40% platform, 60% owner)
+            total = commission_breakdown.get('total', 0)
+            platform_commission = commission_breakdown.get('platform_commission', 0)
+            owner_amount = commission_breakdown.get('owner_amount', 0)
+            
+            expected_commission = total * 0.4
+            expected_owner = total * 0.6
+            
+            commission_correct = abs(platform_commission - expected_commission) < 0.01
+            owner_correct = abs(owner_amount - expected_owner) < 0.01
+            
+            self.log_test("Commission Calculation (40%)", commission_correct)
+            self.log_test("Owner Amount Calculation (60%)", owner_correct)
         
-        # Test unauthorized KYC (owner trying to process tenant's KYC)
-        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/kyc', token=self.owner_token, expected_status=403)
-        self.log_test("Unauthorized KYC Rejection", not success and status == 403)
+        # Test unauthorized payment initialization
+        success, response, status = self.make_request('POST', 'payment/initialize', payment_data, token=self.owner_token, expected_status=404)
+        self.log_test("Unauthorized Payment Initialization", not success and status == 404)
+
+    def test_payment_completion(self):
+        """Test payment completion (NEW PAYMENT SYSTEM)"""
+        print("\n✅ Testing Payment Completion...")
+        
+        if not hasattr(self, 'payment_token') or not self.payment_token:
+            self.log_test("Payment Completion Test Setup", False, "No payment token")
+            return False
+            
+        # Test successful payment completion
+        completion_data = {
+            "payment_token": self.payment_token,
+            "status": "success"
+        }
+        
+        success, response, status = self.make_request('POST', 'payment/complete', completion_data)
+        self.log_test("Payment Completion Success", success and response.get('status') == 'success')
+        
+        if success:
+            commission_processed = response.get('commission_processed', {})
+            print(f"   Platform Commission: {commission_processed.get('platform_commission', 0)}")
+            print(f"   Owner Payment: {commission_processed.get('owner_payment', 0)}")
+            
+        # Test failed payment completion
+        failed_completion_data = {
+            "payment_token": self.payment_token + "_invalid",
+            "status": "failed"
+        }
+        
+        success, response, status = self.make_request('POST', 'payment/complete', failed_completion_data, expected_status=404)
+        self.log_test("Invalid Payment Token Rejection", not success and status == 404)
+
+    def test_payment_history(self):
+        """Test payment history endpoint"""
+        print("\n📋 Testing Payment History...")
+        
+        if not self.tenant_token:
+            self.log_test("Payment History Test Setup", False, "No tenant token")
+            return False
+            
+        success, response, status = self.make_request('GET', 'payments', token=self.tenant_token)
+        self.log_test("Get Payment History", success and isinstance(response, list))
+        
+        if success and len(response) > 0:
+            payment = response[0]
+            required_fields = ['id', 'booking_id', 'total_amount', 'commission_amount', 'owner_amount', 'status']
+            has_all_fields = all(field in payment for field in required_fields)
+            self.log_test("Payment Record Structure", has_all_fields)
+            
+            print(f"   Found {len(response)} payment(s)")
+            print(f"   Latest Payment Status: {payment.get('status', 'unknown')}")
+
+    def test_commission_stats(self):
+        """Test commission statistics endpoint"""
+        print("\n📊 Testing Commission Statistics...")
+        
+        if not self.tenant_token:
+            self.log_test("Commission Stats Test Setup", False, "No token")
+            return False
+            
+        success, response, status = self.make_request('GET', 'commission-stats', token=self.tenant_token)
+        self.log_test("Get Commission Statistics", success and 'commission_rate' in response)
+        
+        if success:
+            print(f"   Total Payments: {response.get('total_payments', 0)}")
+            print(f"   Total Commission Collected: {response.get('total_commission_collected', 0)}")
+            print(f"   Total Owner Payments: {response.get('total_owner_payments', 0)}")
+            print(f"   Payment Count: {response.get('payment_count', 0)}")
+            print(f"   Commission Rate: {response.get('commission_rate', 'unknown')}")
+            
+            # Verify commission rate is 40%
+            commission_rate_correct = response.get('commission_rate') == '40%'
+            self.log_test("Commission Rate Verification (40%)", commission_rate_correct)
 
     def run_all_tests(self):
         """Run all test suites"""
