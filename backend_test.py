@@ -352,6 +352,160 @@ class EvimKiradaAPITester:
         success, response, status = self.make_request('GET', 'applications', token=self.owner_token)
         self.log_test("Owner Applications Listing", success and isinstance(response, list))
 
+    def test_image_upload_system(self):
+        """Test NEW image upload functionality"""
+        print("\n📸 Testing Image Upload System...")
+        
+        if not self.owner_token:
+            self.log_test("Image Upload Test Setup", False, "No owner token")
+            return False
+            
+        # Create a simple test image file in memory
+        import io
+        from PIL import Image
+        
+        # Create test images
+        test_images = []
+        for i in range(2):
+            # Create a simple colored image
+            img = Image.new('RGB', (800, 600), color=(255, 0, 0) if i == 0 else (0, 255, 0))
+            img_bytes = io.BytesIO()
+            img.save(img_bytes, format='JPEG')
+            img_bytes.seek(0)
+            test_images.append(('files', (f'test_image_{i+1}.jpg', img_bytes, 'image/jpeg')))
+        
+        # Test multiple image upload
+        success, response, status = self.make_request('POST', 'upload/images', token=self.owner_token, files=test_images)
+        self.log_test("Multiple Image Upload", success and 'files' in response)
+        
+        if success:
+            uploaded_files = response.get('files', [])
+            self.uploaded_image_urls = [file['url'] for file in uploaded_files]
+            print(f"   Uploaded {len(uploaded_files)} images")
+            for file in uploaded_files:
+                print(f"   - {file['filename']}: {file['url']} ({file['size']} bytes)")
+                
+        # Test invalid file type upload
+        invalid_file = [('files', ('test.txt', io.StringIO('test content'), 'text/plain'))]
+        success, response, status = self.make_request('POST', 'upload/images', token=self.owner_token, files=invalid_file, expected_status=400)
+        self.log_test("Invalid File Type Rejection", not success and status == 400)
+        
+        # Test unauthorized upload (no token)
+        success, response, status = self.make_request('POST', 'upload/images', files=test_images, expected_status=401)
+        self.log_test("Unauthorized Upload Rejection", not success and status == 401)
+
+    def test_property_image_update(self):
+        """Test updating property images"""
+        print("\n🖼️ Testing Property Image Update...")
+        
+        if not self.test_property_id or not self.owner_token or not self.uploaded_image_urls:
+            self.log_test("Property Image Update Test Setup", False, "Missing property, token, or images")
+            return False
+            
+        # Update property images
+        image_data = {'image_urls': self.uploaded_image_urls}
+        success, response, status = self.make_request('PUT', f'properties/{self.test_property_id}/images', 
+                                                    data=image_data, token=self.owner_token, files=image_data)
+        self.log_test("Property Image Update", success and 'images' in response)
+        
+        if success:
+            print(f"   Updated property with {len(response['images'])} images")
+            
+        # Test unauthorized image update (by tenant)
+        success, response, status = self.make_request('PUT', f'properties/{self.test_property_id}/images', 
+                                                    data=image_data, token=self.tenant_token, files=image_data, expected_status=403)
+        self.log_test("Unauthorized Image Update Rejection", not success and status == 403)
+        
+        # Test updating non-existent property
+        success, response, status = self.make_request('PUT', 'properties/nonexistent/images', 
+                                                    data=image_data, token=self.owner_token, files=image_data, expected_status=404)
+        self.log_test("Non-existent Property Image Update Rejection", not success and status == 404)
+
+    def test_admin_panel_endpoints(self):
+        """Test NEW admin panel functionality"""
+        print("\n👑 Testing Admin Panel Endpoints...")
+        
+        if not self.admin_token:
+            self.log_test("Admin Panel Test Setup", False, "No admin token")
+            return False
+            
+        # Test admin users endpoint
+        success, response, status = self.make_request('GET', 'admin/users', token=self.admin_token)
+        self.log_test("Admin Get All Users", success and isinstance(response, list))
+        
+        if success:
+            print(f"   Found {len(response)} users")
+            
+        # Test admin properties endpoint
+        success, response, status = self.make_request('GET', 'admin/properties', token=self.admin_token)
+        self.log_test("Admin Get All Properties", success and isinstance(response, list))
+        
+        if success:
+            print(f"   Found {len(response)} properties")
+            
+        # Test admin applications endpoint
+        success, response, status = self.make_request('GET', 'admin/applications', token=self.admin_token)
+        self.log_test("Admin Get All Applications", success and isinstance(response, list))
+        
+        if success:
+            print(f"   Found {len(response)} applications")
+            
+        # Test admin stats endpoint
+        success, response, status = self.make_request('GET', 'admin/stats', token=self.admin_token)
+        self.log_test("Admin Get Platform Stats", success and 'platform_stats' in response)
+        
+        if success:
+            platform_stats = response.get('platform_stats', {})
+            revenue_stats = response.get('revenue_stats', {})
+            print(f"   Platform Stats:")
+            print(f"   - Total Users: {platform_stats.get('total_users', 0)}")
+            print(f"   - Total Properties: {platform_stats.get('total_properties', 0)}")
+            print(f"   - Active Properties: {platform_stats.get('active_properties', 0)}")
+            print(f"   - Total Applications: {platform_stats.get('total_applications', 0)}")
+            print(f"   Revenue Stats:")
+            print(f"   - Platform Revenue: {revenue_stats.get('total_platform_revenue', 0)}")
+            print(f"   - Commission Rate: {revenue_stats.get('commission_rate', 'unknown')}")
+            
+        # Test unauthorized access to admin endpoints
+        success, response, status = self.make_request('GET', 'admin/users', token=self.tenant_token, expected_status=403)
+        self.log_test("Tenant Admin Access Rejection", not success and status == 403)
+        
+        success, response, status = self.make_request('GET', 'admin/properties', token=self.owner_token, expected_status=403)
+        self.log_test("Owner Admin Access Rejection", not success and status == 403)
+
+    def test_enhanced_application_management(self):
+        """Test NEW enhanced application status management"""
+        print("\n📋 Testing Enhanced Application Management...")
+        
+        if not self.test_application_id or not self.owner_token or not self.admin_token:
+            self.log_test("Application Management Test Setup", False, "Missing application, owner token, or admin token")
+            return False
+            
+        # Test owner updating application status
+        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/status?new_status=under_review&admin_notes=Owner reviewing application', 
+                                                    token=self.owner_token)
+        self.log_test("Owner Update Application Status", success and response.get('status') == 'under_review')
+        
+        # Test admin updating application status with notes
+        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/status?new_status=approved&admin_notes=Admin approved after review', 
+                                                    token=self.admin_token)
+        self.log_test("Admin Update Application Status", success and response.get('status') == 'approved')
+        
+        # Test invalid status update
+        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/status?new_status=invalid_status', 
+                                                    token=self.owner_token, expected_status=400)
+        self.log_test("Invalid Status Rejection", not success and status == 400)
+        
+        # Test unauthorized status update (tenant trying to update)
+        success, response, status = self.make_request('PUT', f'applications/{self.test_application_id}/status?new_status=rejected', 
+                                                    token=self.tenant_token, expected_status=403)
+        self.log_test("Tenant Status Update Rejection", not success and status == 403)
+        
+        # Test updating non-existent application
+        success, response, status = self.make_request('PUT', 'applications/nonexistent/status?new_status=approved', 
+                                                    token=self.admin_token, expected_status=404)
+        self.log_test("Non-existent Application Update Rejection", not success and status == 404)
+
     def test_payment_initialization(self):
         """Test payment initialization (NEW PAYMENT SYSTEM)"""
         print("\n💳 Testing Payment Initialization...")
