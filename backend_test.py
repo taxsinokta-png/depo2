@@ -17,11 +17,14 @@ class EvimKiradaAPITester:
         self.base_url = base_url
         self.owner_token = None
         self.tenant_token = None
+        self.admin_token = None
         self.owner_user = None
         self.tenant_user = None
+        self.admin_user = None
         self.test_property_id = None
         self.test_application_id = None
         self.payment_token = None
+        self.uploaded_image_urls = []
         self.tests_run = 0
         self.tests_passed = 0
         
