@@ -397,45 +397,193 @@ async def get_applications(current_user: User = Depends(get_current_user)):
     
     return [Application(**app) for app in applications]
 
-@api_router.put("/applications/{application_id}/kyc")
-async def process_kyc(
-    application_id: str,
+# Ödeme Endpoints
+@api_router.post("/payment/initialize")
+async def initialize_payment(
+    booking_id: str,
+    user_ip: str = "127.0.0.1",
     current_user: User = Depends(get_current_user)
 ):
-    """Mock KYC processing - assigns a random score and updates status"""
-    app_doc = await db.applications.find_one({"id": application_id})
-    if not app_doc:
-        raise HTTPException(status_code=404, detail="Application not found")
-    
-    if app_doc['tenant_id'] != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Mock KYC scoring (normally would check documents, income, etc.)
-    import random
-    kyc_score = random.randint(60, 95)
-    
-    new_status = ApplicationStatus.APPROVED if kyc_score >= 75 else ApplicationStatus.REJECTED
-    kyc_notes = f"Mock KYC completed. Score: {kyc_score}/100. " + \
-               ("Approved based on score" if kyc_score >= 75 else "Rejected - score too low")
-    
-    await db.applications.update_one(
-        {"id": application_id},
-        {
-            "$set": {
-                "status": new_status,
-                "kyc_score": kyc_score,
-                "kyc_notes": kyc_notes,
-                "updated_at": datetime.now(timezone.utc)
-            }
+    """PayTR ile ödeme başlatma (SANDBOX)"""
+    try:
+        # Bookingı bul
+        booking = await db.bookings.find_one({"id": booking_id})
+        if not booking or booking['tenant_id'] != current_user.id:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Property bilgilerini al
+        property_doc = await db.properties.find_one({"id": booking['property_id']})
+        if not property_doc:
+            raise HTTPException(status_code=404, detail="Property not found")
+        
+        # %40 komisyon hesapla
+        total_amount = float(booking.get('proposed_rent', property_doc['price']))
+        commission_rate = 40.0  # %40 komisyon
+        commission_amount = total_amount * (commission_rate / 100)
+        owner_amount = total_amount - commission_amount
+        
+        # Mock PayTR token oluştur (gerçek entegrasyonda PayTR API'si kullanılacak)
+        payment_token = f"mock_token_{booking_id}_{int(datetime.now(timezone.utc).timestamp())}"
+        payment_url = f"https://mock-paytr.com/payment/{payment_token}"
+        
+        # Payment kaydı oluştur
+        payment_data = {
+            "id": str(uuid.uuid4()),
+            "booking_id": booking_id,
+            "user_id": current_user.id,
+            "total_amount": total_amount,
+            "commission_amount": commission_amount,
+            "owner_amount": owner_amount,
+            "commission_rate": commission_rate,
+            "status": "initialized",
+            "payment_token": payment_token,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
         }
-    )
-    
-    return {
-        "message": "KYC processing completed",
-        "score": kyc_score,
-        "status": new_status,
-        "notes": kyc_notes
-    }
+        
+        await db.payments.insert_one(payment_data)
+        
+        return {
+            "status": "success",
+            "payment_token": payment_token,
+            "payment_url": payment_url,
+            "total_amount": total_amount,
+            "commission_breakdown": {
+                "total": total_amount,
+                "platform_commission": commission_amount,
+                "owner_amount": owner_amount,
+                "commission_rate": f"{commission_rate}%"
+            },
+            "booking_id": booking_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Payment initialization failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment initialization failed")
+
+@api_router.post("/payment/complete")
+async def complete_payment(
+    payment_token: str,
+    status: str = "success"  # Mock için, gerçekte PayTR callback'ten gelir
+):
+    """Mock payment completion (gerçekte PayTR webhook olacak)"""
+    try:
+        # Payment kaydını bul
+        payment = await db.payments.find_one({"payment_token": payment_token})
+        if not payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        if status == "success":
+            # Payment başarılı - booking'i onayla
+            await db.payments.update_one(
+                {"payment_token": payment_token},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completed_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            # Booking statusunu güncelle
+            await db.applications.update_one(
+                {"id": payment["booking_id"]},
+                {
+                    "$set": {
+                        "status": "payment_completed",
+                        "payment_completed_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            # Property statusunu rented yap
+            booking = await db.bookings.find_one({"id": payment["booking_id"]})
+            if booking:
+                await db.properties.update_one(
+                    {"id": booking["property_id"]},
+                    {"$set": {"status": PropertyStatus.RENTED, "updated_at": datetime.now(timezone.utc)}}
+                )
+            
+            return {
+                "status": "success",
+                "message": "Payment completed successfully",
+                "commission_processed": {
+                    "platform_commission": payment["commission_amount"],
+                    "owner_payment": payment["owner_amount"],
+                    "note": "In production, owner payment would be transferred to their account"
+                }
+            }
+        else:
+            # Payment başarısız
+            await db.payments.update_one(
+                {"payment_token": payment_token},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            return {
+                "status": "failed",
+                "message": "Payment failed"
+            }
+            
+    except Exception as e:
+        logger.error(f"Payment completion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment completion failed")
+
+@api_router.get("/payments")
+async def get_payments(current_user: User = Depends(get_current_user)):
+    """Kullanıcının ödeme geçmişi"""
+    try:
+        payments = await db.payments.find({"user_id": current_user.id}).sort("created_at", -1).to_list(length=20)
+        return [Payment(**payment) for payment in payments]
+    except Exception as e:
+        logger.error(f"Get payments failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch payments")
+
+@api_router.get("/commission-stats")
+async def get_commission_stats(current_user: User = Depends(get_current_user)):
+    """Komisyon istatistikleri (admin/property owner için)"""
+    try:
+        # Toplam komisyon hesapla
+        pipeline = [
+            {"$match": {"status": "completed"}},
+            {"$group": {
+                "_id": None,
+                "total_payments": {"$sum": "$total_amount"},
+                "total_commission": {"$sum": "$commission_amount"},
+                "total_owner_payments": {"$sum": "$owner_amount"},
+                "payment_count": {"$sum": 1}
+            }}
+        ]
+        
+        stats = await db.payments.aggregate(pipeline).to_list(1)
+        if stats:
+            stat = stats[0]
+            return {
+                "total_payments": stat.get("total_payments", 0),
+                "total_commission_collected": stat.get("total_commission", 0),
+                "total_owner_payments": stat.get("total_owner_payments", 0),
+                "payment_count": stat.get("payment_count", 0),
+                "commission_rate": "40%"
+            }
+        else:
+            return {
+                "total_payments": 0,
+                "total_commission_collected": 0,
+                "total_owner_payments": 0,
+                "payment_count": 0,
+                "commission_rate": "40%"
+            }
+            
+    except Exception as e:
+        logger.error(f"Get commission stats failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch commission stats")
 
 # Health check
 @api_router.get("/health")
