@@ -7,6 +7,7 @@ Tests all authentication, property management, and application workflows
 import requests
 import sys
 import json
+import uuid
 from datetime import datetime, timedelta
 import random
 import string
