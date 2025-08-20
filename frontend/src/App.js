@@ -522,8 +522,8 @@ const PropertyCard = ({ property }) => {
         
         <div className="flex items-center justify-between">
           <div className="text-2xl font-bold text-indigo-600 flex items-center">
-            <TurkishLira className="h-5 w-5 mr-1" />
-            {property.price.toLocaleString('tr-TR')}
+            <DollarSign className="h-5 w-5 mr-1" />
+            {property.price.toLocaleString('tr-TR')} ₺
           </div>
           <Link to={`/property/${property.id}`}>
             <Button size="sm">Detay</Button>
