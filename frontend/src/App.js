@@ -107,8 +107,20 @@ const Navigation = () => {
                 İlanlar
               </Link>
               {user?.role === 'owner' && (
-                <Link to="/my-properties" className="text-gray-700 hover:text-indigo-600 transition-colors">
-                  İlanlarım
+                <>
+                  <Link to="/my-properties" className="text-gray-700 hover:text-indigo-600 transition-colors">
+                    İlanlarım
+                  </Link>
+                  <Link to="/create-property" className="text-gray-700 hover:text-indigo-600 transition-colors">
+                    <Plus className="inline h-4 w-4 mr-1" />
+                    İlan Ver
+                  </Link>
+                </>
+              )}
+              {user?.role === 'admin' && (
+                <Link to="/admin" className="text-gray-700 hover:text-indigo-600 transition-colors">
+                  <Settings className="inline h-4 w-4 mr-1" />
+                  Admin
                 </Link>
               )}
               {user?.role === 'tenant' && (
