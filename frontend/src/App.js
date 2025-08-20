@@ -605,13 +605,13 @@ const PropertyDetailPage = ({ propertyId }) => {
                       <div className="text-sm text-gray-600">Alan</div>
                     </div>
                     <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <TurkishLira className="h-6 w-6 mx-auto mb-2 text-gray-600" />
-                      <div className="font-semibold">{property.price.toLocaleString('tr-TR')}</div>
+                      <DollarSign className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.price.toLocaleString('tr-TR')} ₺</div>
                       <div className="text-sm text-gray-600">Aylık</div>
                     </div>
                     <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <TurkishLira className="h-6 w-6 mx-auto mb-2 text-gray-600" />
-                      <div className="font-semibold">{property.deposit.toLocaleString('tr-TR')}</div>
+                      <DollarSign className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.deposit.toLocaleString('tr-TR')} ₺</div>
                       <div className="text-sm text-gray-600">Depozito</div>
                     </div>
                   </div>
