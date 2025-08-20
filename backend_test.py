@@ -20,6 +20,7 @@ class EvimKiradaAPITester:
         self.tenant_user = None
         self.test_property_id = None
         self.test_application_id = None
+        self.payment_token = None
         self.tests_run = 0
         self.tests_passed = 0
         
