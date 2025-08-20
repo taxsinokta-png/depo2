@@ -178,6 +178,20 @@ class ApplicationCreate(BaseModel):
     proposed_rent: Optional[float] = None
     move_in_date: datetime
 
+class Payment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    booking_id: str
+    user_id: str
+    total_amount: float
+    commission_amount: float
+    owner_amount: float
+    commission_rate: float
+    status: str  # initialized, completed, failed
+    payment_token: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None
+
 # Authentication dependency
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     credentials_exception = HTTPException(
