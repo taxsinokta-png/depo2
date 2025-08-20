@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,6 +15,10 @@ import jwt
 from passlib.context import CryptContext
 from passlib.hash import bcrypt
 import re
+import shutil
+import aiofiles
+from PIL import Image
+import io
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -33,8 +38,17 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
+# Create uploads directory
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+IMAGES_DIR = UPLOAD_DIR / "images"
+IMAGES_DIR.mkdir(exist_ok=True)
+
 # Create the main app without a prefix
 app = FastAPI(title="Evim Kirada API", description="Türkiye'nin Akıllı Kiralama Platformu")
+
+# Serve static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -55,6 +69,25 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+async def optimize_image(image_path: Path, max_width: int = 1200, quality: int = 85):
+    """Optimize uploaded image"""
+    try:
+        with Image.open(image_path) as img:
+            # Convert to RGB if necessary
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            # Resize if too large
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Save optimized image
+            img.save(image_path, 'JPEG', quality=quality, optimize=True)
+    except Exception as e:
+        logging.error(f"Image optimization failed: {str(e)}")
 
 # Models
 class UserRole:
