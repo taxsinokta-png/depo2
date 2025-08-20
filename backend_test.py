@@ -319,21 +319,36 @@ class EvimKiradaAPITester:
             self.log_test("Payment Initialization Test Setup", False, "Missing application or tenant token")
             return False
             
-        # Create a booking first (using application as booking_id for testing)
+        # Create a booking record first (simulate approved application becoming a booking)
+        booking_id = str(uuid.uuid4())
         booking_data = {
-            "id": self.test_application_id,
+            "id": booking_id,
             "property_id": self.test_property_id,
             "tenant_id": self.tenant_user["id"],
-            "proposed_rent": 8500.0
+            "proposed_rent": 8500.0,
+            "status": "confirmed",
+            "created_at": datetime.now().isoformat()
         }
+        
+        # Insert booking directly into database (simulating approved application)
+        try:
+            import pymongo
+            from pymongo import MongoClient
+            import os
+            
+            # Connect to MongoDB directly to insert booking
+            mongo_url = "mongodb://localhost:27017"
+            client = MongoClient(mongo_url)
+            db = client["test_database"]
+            db.bookings.insert_one(booking_data)
+            client.close()
+            print(f"   Created booking: {booking_id}")
+        except Exception as e:
+            self.log_test("Booking Creation", False, f"Failed to create booking: {str(e)}")
+            return False
         
         # Test payment initialization
-        payment_data = {
-            "booking_id": self.test_application_id,
-            "user_ip": "127.0.0.1"
-        }
-        
-        success, response, status = self.make_request('POST', 'payment/initialize', payment_data, token=self.tenant_token)
+        success, response, status = self.make_request('POST', f'payment/initialize?booking_id={booking_id}&user_ip=127.0.0.1', token=self.tenant_token)
         self.log_test("Payment Initialization", success and 'payment_token' in response)
         
         if success:
@@ -359,8 +374,8 @@ class EvimKiradaAPITester:
             self.log_test("Commission Calculation (40%)", commission_correct)
             self.log_test("Owner Amount Calculation (60%)", owner_correct)
         
-        # Test unauthorized payment initialization
-        success, response, status = self.make_request('POST', 'payment/initialize', payment_data, token=self.owner_token, expected_status=404)
+        # Test unauthorized payment initialization (different user)
+        success, response, status = self.make_request('POST', f'payment/initialize?booking_id={booking_id}&user_ip=127.0.0.1', token=self.owner_token, expected_status=404)
         self.log_test("Unauthorized Payment Initialization", not success and status == 404)
 
     def test_payment_completion(self):
