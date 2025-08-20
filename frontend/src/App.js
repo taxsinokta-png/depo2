@@ -420,7 +420,7 @@ const PropertiesPage = () => {
                     <SelectValue placeholder="Seçin" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tümü</SelectItem>
+                    <SelectItem value="all">Tümü</SelectItem>
                     <SelectItem value="1+0">1+0</SelectItem>
                     <SelectItem value="1+1">1+1</SelectItem>
                     <SelectItem value="2+1">2+1</SelectItem>
