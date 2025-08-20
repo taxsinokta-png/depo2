@@ -152,6 +152,388 @@ const Navigation = () => {
   );
 };
 
+// Simple Image Upload Component
+const ImageUpload = ({ onImagesUploaded, existingImages = [] }) => {
+  const [uploading, setUploading] = useState(false);
+  const [images, setImages] = useState(existingImages);
+
+  const handleFileUpload = async (files) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      for (let file of files) {
+        formData.append('files', file);
+      }
+
+      const response = await axios.post(`${API}/upload/images`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const newImages = response.data.files.map(file => file.url);
+      const updatedImages = [...images, ...newImages];
+      setImages(updatedImages);
+      onImagesUploaded(updatedImages);
+
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Görsel yükleme başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    const updatedImages = images.filter((_, index) => index !== indexToRemove);
+    setImages(updatedImages);
+    onImagesUploaded(updatedImages);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Label>Görsel Yükle</Label>
+      
+      {/* Upload Area */}
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+          className="hidden"
+          id="image-upload"
+          disabled={uploading}
+        />
+        <label htmlFor="image-upload" className="cursor-pointer">
+          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <p className="text-lg font-medium text-gray-900">
+            {uploading ? 'Yükleniyor...' : 'Görselleri seçin'}
+          </p>
+          <p className="text-sm text-gray-500">
+            PNG, JPG, WebP dosyaları (Maks. 5MB)
+          </p>
+        </label>
+      </div>
+
+      {/* Image Preview Grid */}
+      {images.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+          {images.map((image, index) => (
+            <div key={index} className="relative group">
+              <img
+                src={`${BACKEND_URL}${image}`}
+                alt={`Property ${index + 1}`}
+                className="w-full h-32 object-cover rounded-lg"
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => removeImage(index)}
+                  className="text-white"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Create Property Page
+const CreateProperty = () => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    property_type: 'apartment',
+    address: '',
+    district: '',
+    city: 'İstanbul',
+    price: '',
+    deposit: '',
+    area: '',
+    rooms: '2+1',
+    floor: '',
+    heating: '',
+    furnished: false,
+    pets_allowed: false,
+    amenities: []
+  });
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+
+  if (user?.role !== 'owner') {
+    return <div className="min-h-screen flex items-center justify-center">Bu sayfaya erişim yetkiniz yok.</div>;
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Create property
+      const propertyResponse = await axios.post(`${API}/properties`, formData);
+      const propertyId = propertyResponse.data.id;
+
+      // Update property images if any
+      if (images.length > 0) {
+        const formDataImages = new FormData();
+        images.forEach(imageUrl => {
+          formDataImages.append('image_urls', imageUrl);
+        });
+
+        await axios.put(`${API}/properties/${propertyId}/images`, formDataImages);
+      }
+
+      alert('İlan başarıyla oluşturuldu!');
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        property_type: 'apartment',
+        address: '',
+        district: '',
+        city: 'İstanbul',
+        price: '',
+        deposit: '',
+        area: '',
+        rooms: '2+1',
+        floor: '',
+        heating: '',
+        furnished: false,
+        pets_allowed: false,
+        amenities: []
+      });
+      setImages([]);
+
+    } catch (error) {
+      console.error('Property creation failed:', error);
+      alert('İlan oluşturma başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Plus className="mr-2 h-6 w-6" />
+              Yeni İlan Oluştur
+            </CardTitle>
+            <CardDescription>Kiralık gayrimenkul ilanınızı oluşturun</CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Image Upload */}
+              <ImageUpload onImagesUploaded={setImages} />
+              
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="title">İlan Başlığı</Label>
+                  <Input
+                    id="title"
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    placeholder="Örn: Kadıköy'de 2+1 Kiralık Daire"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="property_type">Gayrimenkul Türü</Label>
+                  <Select value={formData.property_type} onValueChange={(value) => setFormData({...formData, property_type: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="apartment">Daire</SelectItem>
+                      <SelectItem value="house">Ev</SelectItem>
+                      <SelectItem value="studio">Stüdyo</SelectItem>
+                      <SelectItem value="villa">Villa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label htmlFor="description">Açıklama</Label>
+                <Textarea
+                  id="description"
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Gayrimenkulünüzü detaylı şekilde tanıtın..."
+                  required
+                />
+              </div>
+
+              {/* Location */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="city">Şehir</Label>
+                  <Input
+                    id="city"
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="district">İlçe</Label>
+                  <Input
+                    id="district"
+                    type="text"
+                    value={formData.district}
+                    onChange={(e) => setFormData({...formData, district: e.target.value})}
+                    placeholder="Örn: Kadıköy"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="address">Adres</Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    placeholder="Sokak ve mahalle bilgisi"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Property Details */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="rooms">Oda Sayısı</Label>
+                  <Select value={formData.rooms} onValueChange={(value) => setFormData({...formData, rooms: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1+0">1+0</SelectItem>
+                      <SelectItem value="1+1">1+1</SelectItem>
+                      <SelectItem value="2+1">2+1</SelectItem>
+                      <SelectItem value="3+1">3+1</SelectItem>
+                      <SelectItem value="4+1">4+1</SelectItem>
+                      <SelectItem value="5+1">5+1</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="area">Alan (m²)</Label>
+                  <Input
+                    id="area"
+                    type="number"
+                    value={formData.area}
+                    onChange={(e) => setFormData({...formData, area: parseInt(e.target.value)})}
+                    placeholder="120"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="floor">Kat</Label>
+                  <Input
+                    id="floor"
+                    type="number"
+                    value={formData.floor}
+                    onChange={(e) => setFormData({...formData, floor: parseInt(e.target.value)})}
+                    placeholder="3"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="heating">Isıtma</Label>
+                  <Input
+                    id="heating"
+                    type="text"
+                    placeholder="Doğalgaz, Kombi, vb."
+                    value={formData.heating}
+                    onChange={(e) => setFormData({...formData, heating: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="price">Aylık Kira (₺)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
+                    placeholder="12000"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="deposit">Depozito (₺)</Label>
+                  <Input
+                    id="deposit"
+                    type="number"
+                    value={formData.deposit}
+                    onChange={(e) => setFormData({...formData, deposit: parseFloat(e.target.value)})}
+                    placeholder="12000"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="flex space-x-6">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="furnished"
+                    checked={formData.furnished}
+                    onChange={(e) => setFormData({...formData, furnished: e.target.checked})}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="furnished">Eşyalı</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="pets_allowed"
+                    checked={formData.pets_allowed}
+                    onChange={(e) => setFormData({...formData, pets_allowed: e.target.checked})}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="pets_allowed">Pet Dostu</Label>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Oluşturuluyor...' : 'İlanı Oluştur'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 // Login/Register Page
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
