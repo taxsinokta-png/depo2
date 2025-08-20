@@ -452,7 +452,11 @@ class EvimKiradaAPITester:
             self.test_my_properties,
             self.test_application_creation,
             self.test_applications_listing,
-            self.test_kyc_process
+            # NEW PAYMENT SYSTEM TESTS
+            self.test_payment_initialization,
+            self.test_payment_completion,
+            self.test_payment_history,
+            self.test_commission_stats
         ]
         
         for test_method in test_methods:
