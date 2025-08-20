@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
