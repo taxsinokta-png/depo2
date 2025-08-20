@@ -87,7 +87,7 @@ class EvimKiradaAPITester:
         return success
 
     def test_user_registration(self):
-        """Test user registration for both owner and tenant"""
+        """Test user registration for owner, tenant, and admin"""
         print("\n🔐 Testing User Registration...")
         
         # Test tenant registration
@@ -117,6 +117,20 @@ class EvimKiradaAPITester:
         self.log_test("Owner Registration", success and 'id' in response)
         if success:
             self.owner_user = response
+            
+        # Test admin registration
+        admin_data = {
+            "email": self.generate_test_email("admin"),
+            "password": "testpass123",
+            "full_name": "Test Admin",
+            "role": "admin",
+            "phone": "+905551234569"
+        }
+        
+        success, response, status = self.make_request('POST', 'auth/register', admin_data, expected_status=200)
+        self.log_test("Admin Registration", success and 'id' in response)
+        if success:
+            self.admin_user = response
             
         # Test duplicate email registration
         success, response, status = self.make_request('POST', 'auth/register', tenant_data, expected_status=400)
