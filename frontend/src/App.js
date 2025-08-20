@@ -929,19 +929,19 @@ const PropertyCard = ({ property }) => {
 };
 
 // Property Detail Page
-const PropertyDetailPage = ({ propertyId }) => {
+const PropertyDetailPage = () => {
+  const { id } = useParams();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showApplicationModal, setShowApplicationModal] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     fetchProperty();
-  }, [propertyId]);
+  }, [id]);
 
   const fetchProperty = async () => {
     try {
-      const response = await axios.get(`${API}/properties/${propertyId}`);
+      const response = await axios.get(`${API}/properties/${id}`);
       setProperty(response.data);
     } catch (error) {
       console.error('Failed to fetch property:', error);
