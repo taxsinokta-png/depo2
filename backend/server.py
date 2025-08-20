@@ -493,16 +493,130 @@ async def create_application(app_data: ApplicationCreate, current_user: User = D
     
     return application
 
-@api_router.get("/applications", response_model=List[Application])
-async def get_applications(current_user: User = Depends(get_current_user)):
-    if current_user.role == UserRole.TENANT:
-        applications = await db.applications.find({"tenant_id": current_user.id}).to_list(length=None)
-    elif current_user.role == UserRole.OWNER:
-        applications = await db.applications.find({"owner_id": current_user.id}).to_list(length=None)
-    else:
-        applications = await db.applications.find({}).to_list(length=None)
+@api_router.put("/applications/{application_id}/status")
+async def update_application_status(
+    application_id: str,
+    new_status: str,
+    admin_notes: str = "",
+    current_user: User = Depends(get_current_user)
+):
+    """Update application status (owner or admin only)"""
+    app_doc = await db.applications.find_one({"id": application_id})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Application not found")
     
+    # Check authorization
+    if current_user.role == UserRole.OWNER and app_doc['owner_id'] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can update application status")
+    
+    valid_statuses = [ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW, 
+                     ApplicationStatus.APPROVED, ApplicationStatus.REJECTED, ApplicationStatus.CANCELLED]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    await db.applications.update_one(
+        {"id": application_id},
+        {
+            "$set": {
+                "status": new_status,
+                "admin_notes": admin_notes,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {
+        "message": "Application status updated successfully",
+        "status": new_status
+    }
+
+# Admin endpoints
+@api_router.get("/admin/users")
+async def get_all_users(
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all users (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = await db.users.find({}).skip(skip).limit(limit).to_list(length=None)
+    return [User(**user) for user in users]
+
+@api_router.get("/admin/properties")
+async def get_all_properties(
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all properties (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    properties = await db.properties.find({}).skip(skip).limit(limit).to_list(length=None)
+    return [Property(**prop) for prop in properties]
+
+@api_router.get("/admin/applications")
+async def get_all_applications(
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all applications (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    applications = await db.applications.find({}).skip(skip).limit(limit).to_list(length=None)
     return [Application(**app) for app in applications]
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(current_user: User = Depends(get_current_user)):
+    """Get platform statistics (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        # Get counts
+        total_users = await db.users.count_documents({})
+        total_properties = await db.properties.count_documents({})
+        active_properties = await db.properties.count_documents({"status": PropertyStatus.ACTIVE})
+        total_applications = await db.applications.count_documents({})
+        total_payments = await db.payments.count_documents({"status": "completed"})
+        
+        # Get commission stats
+        commission_pipeline = [
+            {"$match": {"status": "completed"}},
+            {"$group": {
+                "_id": None,
+                "total_commission": {"$sum": "$commission_amount"},
+                "total_revenue": {"$sum": "$total_amount"}
+            }}
+        ]
+        
+        commission_stats = await db.payments.aggregate(commission_pipeline).to_list(1)
+        commission_data = commission_stats[0] if commission_stats else {"total_commission": 0, "total_revenue": 0}
+        
+        return {
+            "platform_stats": {
+                "total_users": total_users,
+                "total_properties": total_properties,
+                "active_properties": active_properties,
+                "total_applications": total_applications,
+                "completed_payments": total_payments
+            },
+            "revenue_stats": {
+                "total_platform_revenue": commission_data["total_commission"],
+                "total_processed_amount": commission_data["total_revenue"],
+                "commission_rate": "40%"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Get admin stats failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch admin stats")
 
 # Ödeme Endpoints
 @api_router.post("/payment/initialize")
