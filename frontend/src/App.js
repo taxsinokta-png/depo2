@@ -1265,7 +1265,15 @@ function App() {
             <Route path="/properties" element={<PropertiesPage />} />
             <Route 
               path="/property/:id" 
-              element={<PropertyDetailPage propertyId={window.location.pathname.split('/').pop()} />} 
+              element={<PropertyDetailPage />} 
+            />
+            <Route
+              path="/create-property"
+              element={
+                <ProtectedRoute roles={['owner']}>
+                  <CreateProperty />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/applications"
