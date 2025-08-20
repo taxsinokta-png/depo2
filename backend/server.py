@@ -1,15 +1,19 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List
+from pydantic import BaseModel, Field, EmailStr
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
-
+from datetime import datetime, timedelta, timezone
+import jwt
+from passlib.context import CryptContext
+from passlib.hash import bcrypt
+import re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,38 +23,414 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# JWT Configuration
+SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
 # Create the main app without a prefix
-app = FastAPI()
+app = FastAPI(title="Evim Kirada API", description="Türkiye'nin Akıllı Kiralama Platformu")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Utility functions
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
-# Define Models
-class StatusCheck(BaseModel):
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# Models
+class UserRole:
+    OWNER = "owner"  # Ev sahibi
+    TENANT = "tenant"  # Kiracı
+    ADMIN = "admin"
+
+class UserProfile(BaseModel):
+    phone: Optional[str] = None
+    tc_no: Optional[str] = None
+    address: Optional[str] = None
+    profession: Optional[str] = None
+    income: Optional[float] = None
+    is_kyc_verified: bool = False
+    kyc_documents: List[str] = Field(default_factory=list)
+
+class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    email: EmailStr
+    full_name: str
+    role: str = UserRole.TENANT
+    is_active: bool = True
+    profile: UserProfile = Field(default_factory=UserProfile)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    role: str = UserRole.TENANT
+    phone: Optional[str] = None
 
-# Add your routes to the router instead of directly to app
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+
+class PropertyType:
+    APARTMENT = "apartment"
+    HOUSE = "house"
+    STUDIO = "studio"
+    VILLA = "villa"
+
+class PropertyStatus:
+    DRAFT = "draft"
+    ACTIVE = "active"
+    RENTED = "rented"
+    INACTIVE = "inactive"
+
+class Property(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    owner_id: str
+    title: str
+    description: str
+    property_type: str = PropertyType.APARTMENT
+    address: str
+    district: str
+    city: str = "İstanbul"
+    price: float  # Aylık kira
+    deposit: float  # Depozito
+    area: int  # m2
+    rooms: str  # "2+1", "3+1" etc
+    floor: Optional[int] = None
+    heating: Optional[str] = None
+    furnished: bool = False
+    pets_allowed: bool = False
+    images: List[str] = Field(default_factory=list)
+    amenities: List[str] = Field(default_factory=list)
+    status: str = PropertyStatus.DRAFT
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class PropertyCreate(BaseModel):
+    title: str
+    description: str
+    property_type: str = PropertyType.APARTMENT
+    address: str
+    district: str
+    city: str = "İstanbul"
+    price: float
+    deposit: float
+    area: int
+    rooms: str
+    floor: Optional[int] = None
+    heating: Optional[str] = None
+    furnished: bool = False
+    pets_allowed: bool = False
+    amenities: List[str] = Field(default_factory=list)
+
+class ApplicationStatus:
+    PENDING = "pending"
+    UNDER_REVIEW = "under_review"
+    KYC_REQUIRED = "kyc_required"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+class Application(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    property_id: str
+    tenant_id: str
+    owner_id: str
+    status: str = ApplicationStatus.PENDING
+    message: str
+    proposed_rent: Optional[float] = None
+    move_in_date: datetime
+    kyc_score: Optional[int] = None
+    kyc_notes: Optional[str] = None
+    admin_notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ApplicationCreate(BaseModel):
+    property_id: str
+    message: str
+    proposed_rent: Optional[float] = None
+    move_in_date: datetime
+
+# Authentication dependency
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
+    user = await db.users.find_one({"id": user_id})
+    if user is None:
+        raise credentials_exception
+    return User(**user)
+
+# Auth endpoints
+@api_router.post("/auth/register", response_model=User)
+async def register(user_data: UserCreate):
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate password
+    if len(user_data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Create user
+    user_dict = user_data.dict(exclude={'password'})
+    user = User(**user_dict)
+    
+    # Hash password and store separately
+    hashed_password = get_password_hash(user_data.password)
+    user_doc = user.dict()
+    user_doc['password_hash'] = hashed_password
+    
+    await db.users.insert_one(user_doc)
+    return user
+
+@api_router.post("/auth/login", response_model=Token)
+async def login(login_data: UserLogin):
+    user = await db.users.find_one({"email": login_data.email})
+    if not user or not verify_password(login_data.password, user['password_hash']):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    if not user['is_active']:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    
+    # Create tokens
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_token(
+        data={"sub": user['id'], "email": user['email'], "role": user['role']}, 
+        expires_delta=access_token_expires
+    )
+    
+    refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = create_token(
+        data={"sub": user['id'], "type": "refresh"}, 
+        expires_delta=refresh_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+@api_router.get("/auth/me", response_model=User)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    return current_user
+
+# Property endpoints
+@api_router.post("/properties", response_model=Property)
+async def create_property(property_data: PropertyCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owners can create properties")
+    
+    property_dict = property_data.dict()
+    property_dict['owner_id'] = current_user.id
+    property_obj = Property(**property_dict)
+    
+    await db.properties.insert_one(property_obj.dict())
+    return property_obj
+
+@api_router.get("/properties", response_model=List[Property])
+async def list_properties(
+    city: Optional[str] = None,
+    district: Optional[str] = None,
+    property_type: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    rooms: Optional[str] = None,
+    furnished: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 20
+):
+    # Build filter
+    filter_dict = {"status": PropertyStatus.ACTIVE}
+    if city:
+        filter_dict["city"] = city
+    if district:
+        filter_dict["district"] = district
+    if property_type:
+        filter_dict["property_type"] = property_type
+    if min_price is not None:
+        filter_dict["price"] = {"$gte": min_price}
+    if max_price is not None:
+        if "price" in filter_dict:
+            filter_dict["price"]["$lte"] = max_price
+        else:
+            filter_dict["price"] = {"$lte": max_price}
+    if rooms:
+        filter_dict["rooms"] = rooms
+    if furnished is not None:
+        filter_dict["furnished"] = furnished
+    
+    properties = await db.properties.find(filter_dict).skip(skip).limit(limit).to_list(length=None)
+    return [Property(**prop) for prop in properties]
+
+@api_router.get("/properties/{property_id}", response_model=Property)
+async def get_property(property_id: str):
+    property_doc = await db.properties.find_one({"id": property_id})
+    if not property_doc:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return Property(**property_doc)
+
+@api_router.get("/my-properties", response_model=List[Property])
+async def get_my_properties(current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owners can view their properties")
+    
+    properties = await db.properties.find({"owner_id": current_user.id}).to_list(length=None)
+    return [Property(**prop) for prop in properties]
+
+@api_router.put("/properties/{property_id}/status")
+async def update_property_status(
+    property_id: str, 
+    status: str, 
+    current_user: User = Depends(get_current_user)
+):
+    property_doc = await db.properties.find_one({"id": property_id})
+    if not property_doc:
+        raise HTTPException(status_code=404, detail="Property not found")
+    
+    if property_doc['owner_id'] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    valid_statuses = [PropertyStatus.DRAFT, PropertyStatus.ACTIVE, PropertyStatus.RENTED, PropertyStatus.INACTIVE]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    await db.properties.update_one(
+        {"id": property_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Status updated successfully"}
+
+# Application endpoints
+@api_router.post("/applications", response_model=Application)
+async def create_application(app_data: ApplicationCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.TENANT:
+        raise HTTPException(status_code=403, detail="Only tenants can apply")
+    
+    # Check if property exists and is active
+    property_doc = await db.properties.find_one({"id": app_data.property_id})
+    if not property_doc:
+        raise HTTPException(status_code=404, detail="Property not found")
+    
+    if property_doc['status'] != PropertyStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Property is not available for rent")
+    
+    # Check if user already applied
+    existing_app = await db.applications.find_one({
+        "property_id": app_data.property_id,
+        "tenant_id": current_user.id
+    })
+    if existing_app:
+        raise HTTPException(status_code=400, detail="You have already applied for this property")
+    
+    app_dict = app_data.dict()
+    app_dict['tenant_id'] = current_user.id
+    app_dict['owner_id'] = property_doc['owner_id']
+    
+    application = Application(**app_dict)
+    await db.applications.insert_one(application.dict())
+    
+    return application
+
+@api_router.get("/applications", response_model=List[Application])
+async def get_applications(current_user: User = Depends(get_current_user)):
+    if current_user.role == UserRole.TENANT:
+        applications = await db.applications.find({"tenant_id": current_user.id}).to_list(length=None)
+    elif current_user.role == UserRole.OWNER:
+        applications = await db.applications.find({"owner_id": current_user.id}).to_list(length=None)
+    else:
+        applications = await db.applications.find({}).to_list(length=None)
+    
+    return [Application(**app) for app in applications]
+
+@api_router.put("/applications/{application_id}/kyc")
+async def process_kyc(
+    application_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Mock KYC processing - assigns a random score and updates status"""
+    app_doc = await db.applications.find_one({"id": application_id})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    if app_doc['tenant_id'] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Mock KYC scoring (normally would check documents, income, etc.)
+    import random
+    kyc_score = random.randint(60, 95)
+    
+    new_status = ApplicationStatus.APPROVED if kyc_score >= 75 else ApplicationStatus.REJECTED
+    kyc_notes = f"Mock KYC completed. Score: {kyc_score}/100. " + \
+               ("Approved based on score" if kyc_score >= 75 else "Rejected - score too low")
+    
+    await db.applications.update_one(
+        {"id": application_id},
+        {
+            "$set": {
+                "status": new_status,
+                "kyc_score": kyc_score,
+                "kyc_notes": kyc_notes,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {
+        "message": "KYC processing completed",
+        "score": kyc_score,
+        "status": new_status,
+        "notes": kyc_notes
+    }
+
+# Health check
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+    return {"message": "Evim Kirada API v1.0", "status": "running"}
 
 # Include the router in the main app
 app.include_router(api_router)
