@@ -777,6 +777,27 @@ async def complete_payment(
                     {"$set": {"status": PropertyStatus.RENTED, "updated_at": datetime.now(timezone.utc)}}
                 )
             
+            # Send payment success notification
+            try:
+                user = await db.users.find_one({"id": payment["user_id"]})
+                booking = await db.bookings.find_one({"id": payment["booking_id"]}) or await db.applications.find_one({"id": payment["booking_id"]})
+                property_doc = None
+                
+                if booking:
+                    property_doc = await db.properties.find_one({"id": booking.get("property_id")})
+                
+                if user and property_doc:
+                    await notification_service.send_payment_successful(
+                        user_email=user['email'],
+                        user_name=user['full_name'],
+                        property_title=property_doc['title'],
+                        amount=payment["total_amount"],
+                        commission=payment["commission_amount"],
+                        owner_amount=payment["owner_amount"]
+                    )
+            except Exception as e:
+                logger.error(f"Failed to send payment success notification: {str(e)}")
+            
             return {
                 "status": "success",
                 "message": "Payment completed successfully",
