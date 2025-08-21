@@ -1247,27 +1247,625 @@ const PropertyCard = ({ property }) => {
   );
 };
 
-// Property Detail Page
-const PropertyDetailPage = () => {
-  const { id } = useParams();
-  const [property, setProperty] = useState(null);
+// Owner Dashboard Component - ENHANCED & PROFESSIONAL
+const OwnerDashboard = () => {
+  const [stats, setStats] = useState(null);
+  const [properties, setProperties] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState("overview");
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchProperty();
-  }, [id]);
+    fetchDashboardData();
+  }, []);
 
-  const fetchProperty = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const response = await axios.get(`${API}/properties/${id}`);
-      setProperty(response.data);
+      const [propertiesRes, applicationsRes, paymentsRes, commissionRes] = await Promise.all([
+        axios.get(`${API}/my-properties`),
+        axios.get(`${API}/applications`),
+        axios.get(`${API}/payments`),
+        axios.get(`${API}/commission-stats`)
+      ]);
+
+      setProperties(propertiesRes.data);
+      setApplications(applicationsRes.data);
+      setPayments(paymentsRes.data);
+      setStats(commissionRes.data);
     } catch (error) {
-      console.error('Failed to fetch property:', error);
+      console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleApplicationAction = async (applicationId, action, notes = '') => {
+    try {
+      const params = new URLSearchParams();
+      params.append('new_status', action);
+      params.append('admin_notes', notes);
+      
+      await axios.put(`${API}/applications/${applicationId}/status?${params}`);
+      await fetchDashboardData(); // Refresh data
+      alert(`✅ Başvuru durumu "${action}" olarak güncellendi!`);
+    } catch (error) {
+      console.error('Failed to update application:', error);
+      alert('İşlem başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
+    }
+  };
+
+  const handlePropertyStatusUpdate = async (propertyId, newStatus) => {
+    try {
+      const params = new URLSearchParams();
+      params.append('status', newStatus);
+      
+      await axios.put(`${API}/properties/${propertyId}/status?${params}`);
+      await fetchDashboardData(); // Refresh data
+      alert(`✅ İlan durumu "${newStatus}" olarak güncellendi!`);
+    } catch (error) {
+      console.error('Failed to update property status:', error);
+      alert('İşlem başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
+    }
+  };
+
+  if (user?.role !== 'owner') {
+    return <div className="min-h-screen flex items-center justify-center">Bu sayfaya erişim yetkiniz yok.</div>;
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+        <p>Dashboard yükleniyor...</p>
+      </div>
+    </div>;
+  }
+
+  const pendingApplications = applications.filter(a => a.status === 'pending');
+  const activeProperties = properties.filter(p => p.status === 'active');
+  const rentedProperties = properties.filter(p => p.status === 'rented');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 flex items-center">
+            <Building className="mr-4 h-10 w-10 text-indigo-600" />
+            Ev Sahibi Dashboard
+          </h1>
+          <p className="text-gray-600 mt-2">Hoş geldiniz <strong>{user.full_name}</strong>, ilanlarınızı ve başvuruları yönetin</p>
+        </div>
+
+        {/* Stats Cards - Enhanced */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white overflow-hidden">
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Toplam İlan</p>
+                  <p className="text-3xl font-bold">{properties.length}</p>
+                </div>
+                <Building className="h-12 w-12 text-blue-200" />
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-20">
+                <Building className="h-20 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white overflow-hidden">
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Aktif İlan</p>
+                  <p className="text-3xl font-bold">{activeProperties.length}</p>
+                </div>
+                <Eye className="h-12 w-12 text-green-200" />
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-20">
+                <Eye className="h-20 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white overflow-hidden">
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-yellow-100 text-sm">Bekleyen Başvuru</p>
+                  <p className="text-3xl font-bold">{pendingApplications.length}</p>
+                </div>
+                <Users className="h-12 w-12 text-yellow-200" />
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-20">
+                <Users className="h-20 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white overflow-hidden">
+            <CardContent className="p-6 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm">Aylık Gelir</p>
+                  <p className="text-3xl font-bold">₺{(rentedProperties.reduce((sum, p) => sum + p.price, 0)).toLocaleString('tr-TR')}</p>
+                </div>
+                <DollarSign className="h-12 w-12 text-purple-200" />
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-20">
+                <DollarSign className="h-20 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <Card className="mb-8 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+          <CardContent className="p-6">
+            <h3 className="text-xl font-semibold mb-4 flex items-center">
+              <Plus className="mr-2 h-6 w-6" />
+              Hızlı İşlemler
+            </h3>
+            <div className="flex flex-wrap gap-4">
+              <Link to="/create-property">
+                <Button variant="secondary" className="bg-white text-indigo-600 hover:bg-gray-100">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Yeni İlan Ekle
+                </Button>
+              </Link>
+              {pendingApplications.length > 0 && (
+                <Button 
+                  variant="secondary" 
+                  className="bg-yellow-400 text-yellow-900 hover:bg-yellow-300"
+                  onClick={() => setSelectedTab("applications")}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  {pendingApplications.length} Başvuru Bekliyor
+                </Button>
+              )}
+              <Button 
+                variant="secondary" 
+                className="bg-white/20 text-white hover:bg-white/30 border border-white/30"
+                onClick={() => fetchDashboardData()}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Verileri Yenile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Tabs */}
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Genel Bakış
+            </TabsTrigger>
+            <TabsTrigger value="applications" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <Users className="mr-2 h-4 w-4" />
+              Başvurular ({applications.length})
+            </TabsTrigger>
+            <TabsTrigger value="properties" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <Building className="mr-2 h-4 w-4" />
+              İlanlarım ({properties.length})
+            </TabsTrigger>
+            <TabsTrigger value="earnings" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Gelir Raporu
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Recent Applications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Users className="mr-2 h-5 w-5" />
+                    Son Başvurular
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {applications.slice(0, 3).map((application) => (
+                      <div key={application.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-semibold">{application.id.substring(0, 8)}</p>
+                          <p className="text-sm text-gray-600">{new Date(application.created_at).toLocaleDateString('tr-TR')}</p>
+                        </div>
+                        <Badge variant={
+                          application.status === 'approved' ? 'default' :
+                          application.status === 'pending' ? 'secondary' : 'destructive'
+                        }>
+                          {application.status === 'pending' ? 'Beklemede' :
+                           application.status === 'approved' ? 'Onaylandı' : 
+                           application.status === 'rejected' ? 'Reddedildi' : application.status}
+                        </Badge>
+                      </div>
+                    ))}
+                    {applications.length === 0 && (
+                      <p className="text-gray-500 text-center py-8">Henüz başvuru bulunmuyor</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Property Performance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BarChart3 className="mr-2 h-5 w-5" />
+                    İlan Performansı
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>Aktif İlanlar</span>
+                      <div className="flex items-center">
+                        <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                          <div className="bg-green-600 h-2 rounded-full" style={{width: `${properties.length > 0 ? (activeProperties.length / properties.length) * 100 : 0}%`}}></div>
+                        </div>
+                        <span className="text-sm font-semibold">{activeProperties.length}/{properties.length}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span>Kiralanan</span>
+                      <div className="flex items-center">
+                        <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{width: `${properties.length > 0 ? (rentedProperties.length / properties.length) * 100 : 0}%`}}></div>
+                        </div>
+                        <span className="text-sm font-semibold">{rentedProperties.length}/{properties.length}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span>Başvuru Oranı</span>
+                      <div className="flex items-center">
+                        <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                          <div className="bg-purple-600 h-2 rounded-full" style={{width: `${properties.length > 0 ? Math.min((applications.length / properties.length) * 20, 100) : 0}%`}}></div>
+                        </div>
+                        <span className="text-sm font-semibold">{applications.length} başvuru</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="applications">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Users className="mr-2 h-6 w-6" />
+                    Gelen Başvurular
+                  </div>
+                  {pendingApplications.length > 0 && (
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                      {pendingApplications.length} beklemede
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>Kiracı başvurularını inceleyin ve yanıtlayın</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {applications.map((application) => (
+                    <Card key={application.id} className="border-l-4 border-indigo-400">
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-semibold text-lg">Başvuru #{application.id.substring(0, 8)}</h3>
+                            <p className="text-sm text-gray-600">
+                              📅 {new Date(application.created_at).toLocaleDateString('tr-TR', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </p>
+                            {application.move_in_date && (
+                              <p className="text-sm text-gray-600">
+                                🏠 Taşınma: {new Date(application.move_in_date).toLocaleDateString('tr-TR')}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant={
+                            application.status === 'approved' ? 'default' :
+                            application.status === 'pending' ? 'secondary' : 'destructive'
+                          } className="text-sm">
+                            {application.status === 'pending' ? '⏳ Beklemede' :
+                             application.status === 'approved' ? '✅ Onaylandı' :
+                             application.status === 'under_review' ? '👀 İnceleniyor' : 
+                             application.status === 'rejected' ? '❌ Reddedildi' : application.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                          <h4 className="font-medium mb-2">💬 Başvuru Mesajı:</h4>
+                          <p className="text-gray-700 italic">"{application.message}"</p>
+                        </div>
+                        
+                        {application.admin_notes && (
+                          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                            <h4 className="font-medium mb-2 text-blue-800">📝 Notlar:</h4>
+                            <p className="text-blue-700">{application.admin_notes}</p>
+                          </div>
+                        )}
+                        
+                        {application.status === 'pending' && (
+                          <div className="flex space-x-3">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleApplicationAction(application.id, 'approved')}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              ✅ Onayla
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const reason = prompt("Red sebebi (isteğe bağlı):");
+                                handleApplicationAction(application.id, 'rejected', reason || 'Owner decision');
+                              }}
+                              className="border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              ❌ Reddet
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={() => handleApplicationAction(application.id, 'under_review')}
+                            >
+                              👀 İnceleliyor Olarak İşaretle
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {applications.length === 0 && (
+                    <div className="text-center py-12">
+                      <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz başvuru yok</h3>
+                      <p className="text-gray-600">İlanlarınızı yayınlayarak kiracı başvuruları almaya başlayın.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="properties">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Building className="mr-2 h-6 w-6" />
+                    İlanlarım
+                  </div>
+                  <Link to="/create-property">
+                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Yeni İlan
+                    </Button>
+                  </Link>
+                </CardTitle>
+                <CardDescription>Gayrimenkul ilanlarınızı yönetin</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {properties.map((property) => (
+                    <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      {property.images && property.images[0] && (
+                        <div className="aspect-video bg-gray-200 relative">
+                          <img
+                            src={`${BACKEND_URL}${property.images[0]}`}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Badge variant={property.status === 'active' ? 'default' : 'secondary'} className="bg-white/90 text-gray-800">
+                              {property.status === 'active' ? '🟢 Aktif' : 
+                               property.status === 'rented' ? '🔵 Kiralandı' : 
+                               property.status === 'draft' ? '⚪ Taslak' : '🔴 Pasif'}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-2">{property.title}</h3>
+                        <div className="flex items-center text-gray-600 mb-2">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          <span className="text-sm">{property.district}, {property.city}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-2xl font-bold text-indigo-600 flex items-center">
+                            <DollarSign className="h-5 w-5 mr-1" />
+                            {property.price.toLocaleString('tr-TR')} ₺
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
+                          <div className="flex items-center">
+                            <Bed className="h-4 w-4 mr-1" />
+                            <span>{property.rooms}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Square className="h-4 w-4 mr-1" />
+                            <span>{property.area}m²</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          {property.status === 'draft' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handlePropertyStatusUpdate(property.id, 'active')}
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                            >
+                              🚀 Yayınla
+                            </Button>
+                          )}
+                          {property.status === 'active' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handlePropertyStatusUpdate(property.id, 'inactive')}
+                              className="flex-1"
+                            >
+                              ⏸️ Durdur
+                            </Button>
+                          )}
+                          {property.status === 'inactive' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handlePropertyStatusUpdate(property.id, 'active')}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            >
+                              ▶️ Aktifleştir
+                            </Button>
+                          )}
+                          <Link to={`/property/${property.id}`} className="flex-1">
+                            <Button size="sm" variant="secondary" className="w-full">
+                              👁️ Görüntüle
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {properties.length === 0 && (
+                  <div className="text-center py-12">
+                    <Building className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz ilanınız yok</h3>
+                    <p className="text-gray-600 mb-4">İlk gayrimenkul ilanınızı oluşturarak kiracı bulmaya başlayın.</p>
+                    <Link to="/create-property">
+                      <Button className="bg-indigo-600 hover:bg-indigo-700">
+                        <Plus className="mr-2 h-4 w-4" />
+                        İlk İlanınızı Oluşturun
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="earnings">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="mr-2 h-6 w-6" />
+                  Gelir Raporu ve Komisyon Analizi
+                </CardTitle>
+                <CardDescription>Platform komisyonu ve kazancınızın detaylı analizi</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats && (
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl">
+                      <h3 className="text-xl font-semibold mb-4 flex items-center">
+                        <BarChart3 className="mr-2 h-6 w-6" />
+                        Komisyon Özeti
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="text-center bg-white p-4 rounded-lg">
+                          <div className="text-3xl font-bold text-green-600 mb-2">
+                            ₺{stats.total_owner_payments?.toLocaleString('tr-TR') || '0'}
+                          </div>
+                          <p className="text-sm text-gray-600">Size Ödenen Tutar</p>
+                          <p className="text-xs text-green-600 mt-1">(%60 pay)</p>
+                        </div>
+                        <div className="text-center bg-white p-4 rounded-lg">
+                          <div className="text-3xl font-bold text-blue-600 mb-2">
+                            ₺{stats.total_commission_collected?.toLocaleString('tr-TR') || '0'}
+                          </div>
+                          <p className="text-sm text-gray-600">Platform Komisyonu</p>
+                          <p className="text-xs text-blue-600 mt-1">(%40 sadece ilk ay)</p>
+                        </div>
+                        <div className="text-center bg-white p-4 rounded-lg">
+                          <div className="text-3xl font-bold text-indigo-600 mb-2">
+                            ₺{stats.total_payments?.toLocaleString('tr-TR') || '0'}
+                          </div>
+                          <p className="text-sm text-gray-600">Toplam İşlem</p>
+                          <p className="text-xs text-indigo-600 mt-1">{stats.payment_count || 0} ödeme</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-yellow-50 p-6 rounded-lg">
+                        <h4 className="font-semibold text-yellow-800 mb-3 flex items-center">
+                          <Eye className="mr-2 h-5 w-5" />
+                          💡 Komisyon Bilgisi
+                        </h4>
+                        <p className="text-yellow-700 text-sm leading-relaxed">
+                          Evim Kirada sadece <strong>ilk ay kirasından %40 komisyon</strong> alır. 
+                          Sonraki aylar komisyonsuz olarak doğrudan sizinle kiracı arasında gerçekleşir.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-blue-50 p-6 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+                          <BarChart3 className="mr-2 h-5 w-5" />
+                          📊 Potansiyel Aylık Gelir
+                        </h4>
+                        <div className="text-2xl font-bold text-blue-600 mb-2">
+                          ₺{rentedProperties.reduce((sum, p) => sum + p.price, 0).toLocaleString('tr-TR')}
+                        </div>
+                        <p className="text-blue-700 text-sm">
+                          {rentedProperties.length} kiralanan ilanınızdan aylık toplam gelir
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Monthly Performance */}
+                    <div className="bg-white border rounded-lg p-6">
+                      <h4 className="font-semibold mb-4 flex items-center">
+                        <Calendar className="mr-2 h-5 w-5" />
+                        📈 Bu Ay Performans
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-gray-700">{applications.length}</div>
+                          <p className="text-sm text-gray-600">Toplam Başvuru</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">{applications.filter(a => a.status === 'approved').length}</div>
+                          <p className="text-sm text-gray-600">Onaylanan</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-yellow-600">{pendingApplications.length}</div>
+                          <p className="text-sm text-gray-600">Beklemede</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600">{activeProperties.length}</div>
+                          <p className="text-sm text-gray-600">Aktif İlan</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
