@@ -1595,6 +1595,14 @@ function App() {
               }
             />
             <Route
+              path="/admin"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/applications"
               element={
                 <ProtectedRoute>
