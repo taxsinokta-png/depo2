@@ -89,6 +89,28 @@ const AuthProvider = ({ children }) => {
   );
 };
 
+// Property Detail Page
+const PropertyDetailPage = () => {
+  const { id } = useParams();
+  const [property, setProperty] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    fetchProperty();
+  }, [id]);
+
+  const fetchProperty = async () => {
+    try {
+      const response = await axios.get(`${API}/properties/${id}`);
+      setProperty(response.data);
+    } catch (error) {
+      console.error('Failed to fetch property:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 // Navigation Component
 const Navigation = () => {
   const { user, logout } = useAuth();
