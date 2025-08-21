@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Label } from "./components/ui/label";
 import { Textarea } from "./components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { Search, Home, User, Plus, MapPin, DollarSign, Bed, Square, Calendar, Phone, Mail, Upload, Trash2, Settings, BarChart3 } from "lucide-react";
+import { Search, Home, User, Plus, MapPin, DollarSign, Bed, Square, Calendar, Phone, Mail, Upload, Trash2, Settings, BarChart3, Users, Building, Eye } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
