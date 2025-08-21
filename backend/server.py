@@ -268,6 +268,17 @@ async def register(user_data: UserCreate):
     user_doc['password_hash'] = hashed_password
     
     await db.users.insert_one(user_doc)
+    
+    # Send welcome email
+    try:
+        await notification_service.send_welcome_email(
+            user_email=user.email,
+            user_name=user.full_name,
+            user_role=user.role
+        )
+    except Exception as e:
+        logger.error(f"Failed to send welcome email: {str(e)}")
+    
     return user
 
 @api_router.post("/auth/login", response_model=Token)
