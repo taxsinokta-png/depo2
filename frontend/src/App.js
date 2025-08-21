@@ -2328,6 +2328,22 @@ function App() {
               }
             />
             <Route
+              path="/owner-dashboard"
+              element={
+                <ProtectedRoute roles={['owner']}>
+                  <OwnerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-properties"
+              element={
+                <ProtectedRoute roles={['owner']}>
+                  <OwnerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/applications"
               element={
                 <ProtectedRoute>
