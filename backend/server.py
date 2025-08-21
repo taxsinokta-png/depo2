@@ -503,6 +503,21 @@ async def create_application(app_data: ApplicationCreate, current_user: User = D
     application = Application(**app_dict)
     await db.applications.insert_one(application.dict())
     
+    # Send notification to property owner
+    try:
+        owner = await db.users.find_one({"id": property_doc['owner_id']})
+        if owner:
+            await notification_service.send_new_application_to_owner(
+                owner_email=owner['email'],
+                owner_name=owner['full_name'],
+                property_title=property_doc['title'],
+                tenant_name=current_user.full_name,
+                application_message=app_data.message,
+                application_id=application.id
+            )
+    except Exception as e:
+        logger.error(f"Failed to send owner notification: {str(e)}")
+    
     return application
 
 @api_router.put("/applications/{application_id}/status")
