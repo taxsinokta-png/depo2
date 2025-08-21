@@ -111,6 +111,61 @@ const PropertyDetailPage = () => {
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+  }
+
+  if (!property) {
+    return <div className="min-h-screen flex items-center justify-center">İlan bulunamadı.</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>{property.title}</CardTitle>
+            <CardDescription>{property.district}, {property.city}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                {property.images && property.images[0] && (
+                  <img
+                    src={`${BACKEND_URL}${property.images[0]}`}
+                    alt={property.title}
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                )}
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-indigo-600 mb-4">
+                  ₺{property.price.toLocaleString('tr-TR')} / ay
+                </div>
+                <div className="space-y-2">
+                  <p><strong>Oda Sayısı:</strong> {property.rooms}</p>
+                  <p><strong>Alan:</strong> {property.area}m²</p>
+                  <p><strong>Kat:</strong> {property.floor || 'Belirtilmemiş'}</p>
+                  <p><strong>Depozito:</strong> ₺{property.deposit.toLocaleString('tr-TR')}</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-2">Açıklama</h3>
+              <p className="text-gray-700">{property.description}</p>
+            </div>
+            {user && user.role === 'tenant' && (
+              <div className="mt-6">
+                <ApplicationForm propertyId={property.id} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 // Navigation Component
 const Navigation = () => {
   const { user, logout } = useAuth();
