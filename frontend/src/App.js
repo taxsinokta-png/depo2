@@ -534,6 +534,325 @@ const CreateProperty = () => {
   );
 };
 
+// Admin Panel Component
+const AdminPanel = () => {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [user]);
+
+  const fetchAdminData = async () => {
+    try {
+      const [statsRes, usersRes, propertiesRes, applicationsRes] = await Promise.all([
+        axios.get(`${API}/admin/stats`),
+        axios.get(`${API}/admin/users`),
+        axios.get(`${API}/admin/properties`),
+        axios.get(`${API}/admin/applications`)
+      ]);
+
+      setStats(statsRes.data);
+      setUsers(usersRes.data);
+      setProperties(propertiesRes.data);
+      setApplications(applicationsRes.data);
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (user?.role !== 'admin') {
+    return <div className="min-h-screen flex items-center justify-center">Bu sayfaya erişim yetkiniz yok.</div>;
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+            <Settings className="mr-3 h-8 w-8" />
+            Admin Panel
+          </h1>
+          <p className="text-gray-600">Platform yönetimi ve istatistikleri</p>
+        </div>
+
+        {/* Stats Overview */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Toplam Kullanıcı</p>
+                    <p className="text-2xl font-bold">{stats.platform_stats?.total_users || 0}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Toplam İlan</p>
+                    <p className="text-2xl font-bold">{stats.platform_stats?.total_properties || 0}</p>
+                  </div>
+                  <Building className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Aktif İlan</p>
+                    <p className="text-2xl font-bold">{stats.platform_stats?.active_properties || 0}</p>
+                  </div>
+                  <Eye className="h-8 w-8 text-indigo-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Tamamlanan Ödeme</p>
+                    <p className="text-2xl font-bold">{stats.platform_stats?.completed_payments || 0}</p>
+                  </div>
+                  <BarChart3 className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Platform Geliri</p>
+                    <p className="text-2xl font-bold">₺{stats.revenue_stats?.total_platform_revenue?.toLocaleString('tr-TR') || '0'}</p>
+                  </div>
+                  <DollarSign className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
+            <TabsTrigger value="users">Kullanıcılar ({users.length})</TabsTrigger>
+            <TabsTrigger value="properties">İlanlar ({properties.length})</TabsTrigger>
+            <TabsTrigger value="applications">Başvurular ({applications.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Performansı</CardTitle>
+                <CardDescription>Genel platform istatistikleri ve gelir raporu</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats && (
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-semibold mb-4">Gelir Özeti</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-3xl font-bold text-indigo-600">
+                            ₺{stats.revenue_stats?.total_platform_revenue?.toLocaleString('tr-TR') || '0'}
+                          </p>
+                          <p className="text-sm text-gray-600">Toplam Platform Komisyonu</p>
+                        </div>
+                        <div>
+                          <p className="text-3xl font-bold text-purple-600">
+                            ₺{stats.revenue_stats?.total_processed_amount?.toLocaleString('tr-TR') || '0'}
+                          </p>
+                          <p className="text-sm text-gray-600">İşlenen Toplam Tutar</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 mb-2">Komisyon Oranı</h4>
+                        <p className="text-2xl font-bold text-blue-600">{stats.revenue_stats?.commission_rate || '40%'}</p>
+                        <p className="text-blue-700 text-sm">Sadece ilk ay kirasından</p>
+                      </div>
+                      
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-800 mb-2">Ortalama İşlem</h4>
+                        <p className="text-2xl font-bold text-green-600">
+                          ₺{stats.platform_stats?.completed_payments ? 
+                             Math.round(stats.revenue_stats?.total_processed_amount / stats.platform_stats?.completed_payments).toLocaleString('tr-TR') : 
+                             '0'}
+                        </p>
+                        <p className="text-green-700 text-sm">Ödeme başına</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>Kullanıcı Yönetimi</CardTitle>
+                <CardDescription>Tüm platform kullanıcıları</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {users.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="font-semibold">{user.full_name}</h3>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                          <p className="text-sm text-gray-500">
+                            Kayıt: {new Date(user.created_at).toLocaleDateString('tr-TR')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={
+                            user.role === 'owner' ? 'default' :
+                            user.role === 'admin' ? 'destructive' : 'secondary'
+                          }>
+                            {user.role === 'owner' ? 'Ev Sahibi' :
+                             user.role === 'admin' ? 'Admin' : 'Kiracı'}
+                          </Badge>
+                          <div className="mt-1">
+                            <Badge variant={user.is_active ? 'outline' : 'destructive'}>
+                              {user.is_active ? 'Aktif' : 'Pasif'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="properties">
+            <Card>
+              <CardHeader>
+                <CardTitle>İlan Yönetimi</CardTitle>
+                <CardDescription>Tüm platform ilanları</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {properties.map((property) => (
+                    <Card key={property.id} className="overflow-hidden">
+                      {property.images && property.images[0] && (
+                        <div className="aspect-video bg-gray-200">
+                          <img
+                            src={`${BACKEND_URL}${property.images[0]}`}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-1">{property.title}</h3>
+                        <div className="flex items-center text-gray-600 mb-2">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          <span className="text-sm">{property.district}, {property.city}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-lg font-bold text-indigo-600">
+                            ₺{property.price.toLocaleString('tr-TR')}
+                          </div>
+                          <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
+                            {property.status === 'active' ? 'Aktif' : 
+                             property.status === 'rented' ? 'Kiralandı' : 
+                             property.status === 'draft' ? 'Taslak' : 'Pasif'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <div className="flex items-center">
+                            <Bed className="h-4 w-4 mr-1" />
+                            <span>{property.rooms}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Square className="h-4 w-4 mr-1" />
+                            <span>{property.area}m²</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="applications">
+            <Card>
+              <CardHeader>
+                <CardTitle>Başvuru Yönetimi</CardTitle>
+                <CardDescription>Tüm kiracı başvuruları</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {applications.map((application) => (
+                    <div key={application.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-semibold">Başvuru ID: {application.id.substring(0, 8)}</h3>
+                          <p className="text-sm text-gray-600">
+                            Tarih: {new Date(application.created_at).toLocaleDateString('tr-TR')}
+                          </p>
+                        </div>
+                        <Badge variant={
+                          application.status === 'approved' ? 'default' :
+                          application.status === 'pending' ? 'secondary' : 'destructive'
+                        }>
+                          {application.status === 'pending' ? 'Beklemede' :
+                           application.status === 'approved' ? 'Onaylandı' : 
+                           application.status === 'rejected' ? 'Reddedildi' : application.status}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-gray-700 mb-2">{application.message}</p>
+                      
+                      {application.admin_notes && (
+                        <p className="text-sm text-gray-500 bg-gray-50 p-2 rounded">
+                          <strong>Admin Notu:</strong> {application.admin_notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
 // Login/Register Page
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
