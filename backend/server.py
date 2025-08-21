@@ -145,6 +145,7 @@ class PropertyStatus:
 
 class Property(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    listing_no: str = Field(default_factory=lambda: f"1{str(int(datetime.now(timezone.utc).timestamp()))[4:]}") # İlan No
     owner_id: str
     title: str
     description: str
@@ -154,14 +155,26 @@ class Property(BaseModel):
     city: str = "İstanbul"
     price: float  # Aylık kira
     deposit: float  # Depozito
-    area: int  # m2
+    dues: Optional[float] = None  # Aidat (TL) - ÖNEMLİ EKLEDİK
+    area_gross: int  # m2 (Brüt)
+    area_net: Optional[int] = None  # m2 (Net)
     rooms: str  # "2+1", "3+1" etc
-    floor: Optional[int] = None
-    heating: Optional[str] = None
-    furnished: bool = False
-    pets_allowed: bool = False
-    images: List[str] = Field(default_factory=list)
+    building_age: Optional[str] = None  # Bina Yaşı
+    floor: Optional[str] = None  # Bulunduğu Kat (Bahçe Katı, 1, 2, vs)
+    total_floors: Optional[int] = None  # Kat Sayısı
+    heating_type: Optional[str] = None  # Isıtma Tipi
+    bathroom_count: Optional[int] = 1  # Banyo Sayısı
+    kitchen_type: Optional[str] = None  # Mutfak Tipi (Açık, Kapalı, Amerikan)
+    balcony: Optional[bool] = False  # Balkon var/yok
+    elevator: Optional[bool] = False  # Asansör var/yok
+    parking: Optional[bool] = False  # Otopark var/yok
+    furnished: Optional[str] = "belirtilmemiş"  # Eşyalı (evet/hayır/kısmen/belirtilmemiş)
+    usage_status: Optional[str] = "boş"  # Kullanım Durumu
+    in_site: Optional[bool] = False  # Site İçerisinde
+    site_name: Optional[str] = None  # Site Adı
+    deed_status: Optional[str] = None  # Tapu Durumu
     amenities: List[str] = Field(default_factory=list)
+    images: List[str] = Field(default_factory=list)
     status: str = PropertyStatus.DRAFT
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -175,12 +188,24 @@ class PropertyCreate(BaseModel):
     city: str = "İstanbul"
     price: float
     deposit: float
-    area: int
+    dues: Optional[float] = None  # Aidat
+    area_gross: int  # m2 brüt
+    area_net: Optional[int] = None  # m2 net
     rooms: str
-    floor: Optional[int] = None
-    heating: Optional[str] = None
-    furnished: bool = False
-    pets_allowed: bool = False
+    building_age: Optional[str] = None
+    floor: Optional[str] = None
+    total_floors: Optional[int] = None
+    heating_type: Optional[str] = None
+    bathroom_count: Optional[int] = 1
+    kitchen_type: Optional[str] = None
+    balcony: Optional[bool] = False
+    elevator: Optional[bool] = False
+    parking: Optional[bool] = False
+    furnished: Optional[str] = "belirtilmemiş"
+    usage_status: Optional[str] = "boş"
+    in_site: Optional[bool] = False
+    site_name: Optional[str] = None
+    deed_status: Optional[str] = None
     amenities: List[str] = Field(default_factory=list)
 
 class ApplicationStatus:
