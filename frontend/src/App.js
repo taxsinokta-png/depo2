@@ -319,7 +319,7 @@ const ImageUpload = ({ onImagesUploaded, existingImages = [] }) => {
   );
 };
 
-// Create Property Page
+// Create Property Page - PROFESSIONAL REAL ESTATE FORM
 const CreateProperty = () => {
   const [formData, setFormData] = useState({
     title: '',
@@ -330,12 +330,24 @@ const CreateProperty = () => {
     city: 'İstanbul',
     price: '',
     deposit: '',
-    area: '',
+    dues: '', // Aidat
+    area_gross: '', // m² (Brüt)
+    area_net: '', // m² (Net)
     rooms: '2+1',
-    floor: '',
-    heating: '',
-    furnished: false,
-    pets_allowed: false,
+    building_age: '', // Bina Yaşı
+    floor: '', // Bulunduğu Kat
+    total_floors: '', // Kat Sayısı
+    heating_type: '', // Isıtma
+    bathroom_count: 1, // Banyo Sayısı
+    kitchen_type: '', // Mutfak
+    balcony: false, // Balkon
+    elevator: false, // Asansör
+    parking: false, // Otopark
+    furnished: 'belirtilmemiş', // Eşyalı
+    usage_status: 'boş', // Kullanım Durumu
+    in_site: false, // Site İçerisinde
+    site_name: '', // Site Adı
+    deed_status: '', // Tapu Durumu
     amenities: []
   });
   const [images, setImages] = useState([]);
@@ -365,244 +377,508 @@ const CreateProperty = () => {
         await axios.put(`${API}/properties/${propertyId}/images`, formDataImages);
       }
 
-      alert('İlan başarıyla oluşturuldu!');
+      alert('🎉 İlan başarıyla oluşturuldu!');
       
       // Reset form
       setFormData({
-        title: '',
-        description: '',
-        property_type: 'apartment',
-        address: '',
-        district: '',
-        city: 'İstanbul',
-        price: '',
-        deposit: '',
-        area: '',
-        rooms: '2+1',
-        floor: '',
-        heating: '',
-        furnished: false,
-        pets_allowed: false,
-        amenities: []
+        title: '', description: '', property_type: 'apartment', address: '', district: '',
+        city: 'İstanbul', price: '', deposit: '', dues: '', area_gross: '', area_net: '',
+        rooms: '2+1', building_age: '', floor: '', total_floors: '', heating_type: '',
+        bathroom_count: 1, kitchen_type: '', balcony: false, elevator: false, parking: false,
+        furnished: 'belirtilmemiş', usage_status: 'boş', in_site: false, site_name: '',
+        deed_status: '', amenities: []
       });
       setImages([]);
 
     } catch (error) {
       console.error('Property creation failed:', error);
-      alert('İlan oluşturma başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
+      alert('❌ İlan oluşturma başarısız: ' + (error.response?.data?.detail || 'Bir hata oluştu'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Plus className="mr-2 h-6 w-6" />
-              Yeni İlan Oluştur
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card className="shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-t-lg">
+            <CardTitle className="flex items-center text-2xl">
+              <Plus className="mr-3 h-8 w-8" />
+              Profesyonel İlan Oluştur
             </CardTitle>
-            <CardDescription>Kiralık gayrimenkul ilanınızı oluşturun</CardDescription>
+            <CardDescription className="text-indigo-100">
+              Gayrimenkul ilanınızı detaylı bilgilerle oluşturun
+            </CardDescription>
           </CardHeader>
           
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
               
-              {/* Image Upload */}
-              <ImageUpload onImagesUploaded={setImages} />
+              {/* Image Upload Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <Upload className="mr-2 h-5 w-5" />
+                  📸 Fotoğraf Yükleme
+                </h3>
+                <ImageUpload onImagesUploaded={setImages} />
+              </div>
               
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="title">İlan Başlığı</Label>
-                  <Input
-                    id="title"
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    placeholder="Örn: Kadıköy'de 2+1 Kiralık Daire"
-                    required
-                  />
-                </div>
+              {/* Basic Info Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-indigo-600 flex items-center">
+                  <Home className="mr-2 h-5 w-5" />
+                  🏠 Temel Bilgiler
+                </h3>
                 
-                <div>
-                  <Label htmlFor="property_type">Gayrimenkul Türü</Label>
-                  <Select value={formData.property_type} onValueChange={(value) => setFormData({...formData, property_type: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="apartment">Daire</SelectItem>
-                      <SelectItem value="house">Ev</SelectItem>
-                      <SelectItem value="studio">Stüdyo</SelectItem>
-                      <SelectItem value="villa">Villa</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="title">İlan Başlığı *</Label>
+                    <Input
+                      id="title"
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      placeholder="Örn: Kadıköy'de Merkezi Konumda 2+1 Kiralık Daire"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="property_type">Emlak Tipi *</Label>
+                    <Select value={formData.property_type} onValueChange={(value) => setFormData({...formData, property_type: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="apartment">Kiralık Daire</SelectItem>
+                        <SelectItem value="house">Kiralık Ev</SelectItem>
+                        <SelectItem value="studio">Kiralık Stüdyo</SelectItem>
+                        <SelectItem value="villa">Kiralık Villa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
 
-              {/* Description */}
-              <div>
-                <Label htmlFor="description">Açıklama</Label>
-                <Textarea
-                  id="description"
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Gayrimenkulünüzü detaylı şekilde tanıtın..."
-                  required
-                />
-              </div>
-
-              {/* Location */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="city">Şehir</Label>
-                  <Input
-                    id="city"
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                {/* Description */}
+                <div className="mt-6">
+                  <Label htmlFor="description">Açıklama *</Label>
+                  <Textarea
+                    id="description"
+                    rows={4}
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Gayrimenkulünüzü detaylı şekilde tanıtın. Çevredeki ulaşım imkanları, sosyal alanlar, özellikler vs."
                     required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="district">İlçe</Label>
-                  <Input
-                    id="district"
-                    type="text"
-                    value={formData.district}
-                    onChange={(e) => setFormData({...formData, district: e.target.value})}
-                    placeholder="Örn: Kadıköy"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="address">Adres</Label>
-                  <Input
-                    id="address"
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    placeholder="Sokak ve mahalle bilgisi"
-                    required
+                    className="mt-1"
                   />
                 </div>
               </div>
 
-              {/* Property Details */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="rooms">Oda Sayısı</Label>
-                  <Select value={formData.rooms} onValueChange={(value) => setFormData({...formData, rooms: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1+0">1+0</SelectItem>
-                      <SelectItem value="1+1">1+1</SelectItem>
-                      <SelectItem value="2+1">2+1</SelectItem>
-                      <SelectItem value="3+1">3+1</SelectItem>
-                      <SelectItem value="4+1">4+1</SelectItem>
-                      <SelectItem value="5+1">5+1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="area">Alan (m²)</Label>
-                  <Input
-                    id="area"
-                    type="number"
-                    value={formData.area}
-                    onChange={(e) => setFormData({...formData, area: parseInt(e.target.value)})}
-                    placeholder="120"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="floor">Kat</Label>
-                  <Input
-                    id="floor"
-                    type="number"
-                    value={formData.floor}
-                    onChange={(e) => setFormData({...formData, floor: parseInt(e.target.value)})}
-                    placeholder="3"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="heating">Isıtma</Label>
-                  <Input
-                    id="heating"
-                    type="text"
-                    placeholder="Doğalgaz, Kombi, vb."
-                    value={formData.heating}
-                    onChange={(e) => setFormData({...formData, heating: e.target.value})}
-                  />
+              {/* Location Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-green-600 flex items-center">
+                  <MapPin className="mr-2 h-5 w-5" />
+                  📍 Konum Bilgileri
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <Label htmlFor="city">Şehir *</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({...formData, city: e.target.value})}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="district">İlçe *</Label>
+                    <Input
+                      id="district"
+                      type="text"
+                      value={formData.district}
+                      onChange={(e) => setFormData({...formData, district: e.target.value})}
+                      placeholder="Örn: Kadıköy"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="address">Mahalle/Sokak *</Label>
+                    <Input
+                      id="address"
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({...formData, address: e.target.value})}
+                      placeholder="Mahalle ve sokak bilgisi"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Pricing */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Aylık Kira (₺)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
-                    placeholder="12000"
-                    required
-                  />
-                </div>
+              {/* Property Details Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-blue-600 flex items-center">
+                  <Building className="mr-2 h-5 w-5" />
+                  🏗️ Yapı Bilgileri
+                </h3>
                 
-                <div>
-                  <Label htmlFor="deposit">Depozito (₺)</Label>
-                  <Input
-                    id="deposit"
-                    type="number"
-                    value={formData.deposit}
-                    onChange={(e) => setFormData({...formData, deposit: parseFloat(e.target.value)})}
-                    placeholder="12000"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div>
+                    <Label htmlFor="rooms">Oda Sayısı *</Label>
+                    <Select value={formData.rooms} onValueChange={(value) => setFormData({...formData, rooms: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1+0">1+0</SelectItem>
+                        <SelectItem value="1+1">1+1</SelectItem>
+                        <SelectItem value="2+1">2+1</SelectItem>
+                        <SelectItem value="3+1">3+1</SelectItem>
+                        <SelectItem value="4+1">4+1</SelectItem>
+                        <SelectItem value="5+1">5+1</SelectItem>
+                        <SelectItem value="6+1">6+1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="area_gross">m² (Brüt) *</Label>
+                    <Input
+                      id="area_gross"
+                      type="number"
+                      value={formData.area_gross}
+                      onChange={(e) => setFormData({...formData, area_gross: parseInt(e.target.value)})}
+                      placeholder="85"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="area_net">m² (Net)</Label>
+                    <Input
+                      id="area_net"
+                      type="number"
+                      value={formData.area_net}
+                      onChange={(e) => setFormData({...formData, area_net: parseInt(e.target.value)})}
+                      placeholder="80"
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="building_age">Bina Yaşı</Label>
+                    <Select value={formData.building_age} onValueChange={(value) => setFormData({...formData, building_age: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Sıfır Bina</SelectItem>
+                        <SelectItem value="1-5">1-5 yaş arası</SelectItem>
+                        <SelectItem value="6-10">6-10 yaş arası</SelectItem>
+                        <SelectItem value="11-15">11-15 yaş arası</SelectItem>
+                        <SelectItem value="16-20">16-20 yaş arası</SelectItem>
+                        <SelectItem value="21-25">21-25 yaş arası</SelectItem>
+                        <SelectItem value="26-30">26-30 yaş arası</SelectItem>
+                        <SelectItem value="30+">30 yaş üzeri</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                  <div>
+                    <Label htmlFor="floor">Bulunduğu Kat</Label>
+                    <Select value={formData.floor} onValueChange={(value) => setFormData({...formData, floor: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bodrum">Bodrum</SelectItem>
+                        <SelectItem value="bahçe">Bahçe Katı</SelectItem>
+                        <SelectItem value="zemin">Zemin</SelectItem>
+                        <SelectItem value="1">1. Kat</SelectItem>
+                        <SelectItem value="2">2. Kat</SelectItem>
+                        <SelectItem value="3">3. Kat</SelectItem>
+                        <SelectItem value="4">4. Kat</SelectItem>
+                        <SelectItem value="5">5. Kat</SelectItem>
+                        <SelectItem value="6">6. Kat</SelectItem>
+                        <SelectItem value="7">7. Kat</SelectItem>
+                        <SelectItem value="8+">8. Kat ve üzeri</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="total_floors">Kat Sayısı</Label>
+                    <Input
+                      id="total_floors"
+                      type="number"
+                      value={formData.total_floors}
+                      onChange={(e) => setFormData({...formData, total_floors: parseInt(e.target.value)})}
+                      placeholder="4"
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bathroom_count">Banyo Sayısı</Label>
+                    <Select value={formData.bathroom_count?.toString()} onValueChange={(value) => setFormData({...formData, bathroom_count: parseInt(value)})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="heating_type">Isıtma</Label>
+                    <Select value={formData.heating_type} onValueChange={(value) => setFormData({...formData, heating_type: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yok">Yok</SelectItem>
+                        <SelectItem value="soba">Soba</SelectItem>
+                        <SelectItem value="doğalgaz_kombi">Doğalgaz Kombi</SelectItem>
+                        <SelectItem value="merkezi">Merkezi Sistem</SelectItem>
+                        <SelectItem value="klima">Klima</SelectItem>
+                        <SelectItem value="elektrik">Elektrik</SelectItem>
+                        <SelectItem value="solar">Solar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              {/* Options */}
-              <div className="flex space-x-6">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="furnished"
-                    checked={formData.furnished}
-                    onChange={(e) => setFormData({...formData, furnished: e.target.checked})}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="furnished">Eşyalı</Label>
-                </div>
+              {/* Interior Features Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-purple-600 flex items-center">
+                  <Settings className="mr-2 h-5 w-5" />
+                  🏡 İç Özellikler
+                </h3>
                 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="pets_allowed"
-                    checked={formData.pets_allowed}
-                    onChange={(e) => setFormData({...formData, pets_allowed: e.target.checked})}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="pets_allowed">Pet Dostu</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <Label htmlFor="kitchen_type">Mutfak</Label>
+                    <Select value={formData.kitchen_type} onValueChange={(value) => setFormData({...formData, kitchen_type: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="açık">Açık (Amerikan)</SelectItem>
+                        <SelectItem value="kapalı">Kapalı</SelectItem>
+                        <SelectItem value="yarı_açık">Yarı Açık</SelectItem>
+                        <SelectItem value="yok">Mutfak Yok</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="furnished">Eşyalı</Label>
+                    <Select value={formData.furnished} onValueChange={(value) => setFormData({...formData, furnished: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="evet">Evet</SelectItem>
+                        <SelectItem value="hayır">Hayır</SelectItem>
+                        <SelectItem value="kısmen">Kısmen</SelectItem>
+                        <SelectItem value="belirtilmemiş">Belirtilmemiş</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="usage_status">Kullanım Durumu</Label>
+                    <Select value={formData.usage_status} onValueChange={(value) => setFormData({...formData, usage_status: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="boş">Boş</SelectItem>
+                        <SelectItem value="kiracılı">Kiracılı</SelectItem>
+                        <SelectItem value="mülk_sahibi_oturuyor">Mülk Sahibi Oturuyor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Checkboxes for features */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="balcony"
+                      checked={formData.balcony}
+                      onChange={(e) => setFormData({...formData, balcony: e.target.checked})}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="balcony">🏞️ Balkon</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="elevator"
+                      checked={formData.elevator}
+                      onChange={(e) => setFormData({...formData, elevator: e.target.checked})}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="elevator">🛗 Asansör</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="parking"
+                      checked={formData.parking}
+                      onChange={(e) => setFormData({...formData, parking: e.target.checked})}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="parking">🚗 Otopark</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="in_site"
+                      checked={formData.in_site}
+                      onChange={(e) => setFormData({...formData, in_site: e.target.checked})}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="in_site">🏢 Site İçerisinde</Label>
+                  </div>
+                </div>
+
+                {/* Site Name - conditionally shown */}
+                {formData.in_site && (
+                  <div className="mt-4">
+                    <Label htmlFor="site_name">Site Adı</Label>
+                    <Input
+                      id="site_name"
+                      type="text"
+                      value={formData.site_name}
+                      onChange={(e) => setFormData({...formData, site_name: e.target.value})}
+                      placeholder="Site adını giriniz"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Pricing Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-green-600 flex items-center">
+                  <DollarSign className="mr-2 h-5 w-5" />
+                  💰 Fiyat Bilgileri
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <Label htmlFor="price">Aylık Kira (₺) *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
+                      placeholder="12000"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="deposit">Depozito (₺) *</Label>
+                    <Input
+                      id="deposit"
+                      type="number"
+                      value={formData.deposit}
+                      onChange={(e) => setFormData({...formData, deposit: parseFloat(e.target.value)})}
+                      placeholder="22000"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="dues">Aidat (₺)</Label>
+                    <Input
+                      id="dues"
+                      type="number"
+                      value={formData.dues}
+                      onChange={(e) => setFormData({...formData, dues: parseFloat(e.target.value)})}
+                      placeholder="350"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Boş bırakılırsa "Belirtilmemiş" olarak gösterilir</p>
+                  </div>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Oluşturuluyor...' : 'İlanı Oluştur'}
-              </Button>
+              {/* Legal Section */}
+              <div className="bg-white border-2 border-gray-100 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-6 text-red-600 flex items-center">
+                  <User className="mr-2 h-5 w-5" />
+                  📋 Yasal Bilgiler
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="deed_status">Tapu Durumu</Label>
+                    <Select value={formData.deed_status} onValueChange={(value) => setFormData({...formData, deed_status: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kat_mülkiyeti">Kat Mülkiyeti</SelectItem>
+                        <SelectItem value="hisseli_tapu">Hisseli Tapu</SelectItem>
+                        <SelectItem value="arsa_tapulu">Arsa Tapulu</SelectItem>
+                        <SelectItem value="kat_irtifakı">Kat İrtifakı</SelectItem>
+                        <SelectItem value="diğer">Diğer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-lg">
+                <Button 
+                  type="submit" 
+                  className="w-full bg-white text-indigo-600 hover:bg-gray-100 text-lg py-4 font-semibold" 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3"></div>
+                      İlan Oluşturuluyor...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-6 w-6" />
+                      🚀 Profesyonel İlanı Yayınla
+                    </>
+                  )}
+                </Button>
+                
+                <p className="text-center text-white text-sm mt-4 opacity-90">
+                  * İlanınız önce <strong>taslak</strong> olarak kaydedilecek, daha sonra <strong>yayınlayabilirsiniz</strong>
+                </p>
+              </div>
             </form>
           </CardContent>
         </Card>
