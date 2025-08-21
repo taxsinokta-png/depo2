@@ -1944,13 +1944,7 @@ const OwnerDashboard = () => {
   );
 };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
-  }
-
-  if (!property) {
-    return <div className="min-h-screen flex items-center justify-center">İlan bulunamadı</div>;
-  }
+// Application Form Component
 
   return (
     <div className="min-h-screen bg-gray-50">
