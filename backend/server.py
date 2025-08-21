@@ -554,6 +554,29 @@ async def update_application_status(
         }
     )
     
+    # Send notification to tenant
+    try:
+        tenant = await db.users.find_one({"id": app_doc['tenant_id']})
+        property_doc = await db.properties.find_one({"id": app_doc['property_id']})
+        
+        if tenant and property_doc:
+            if new_status == ApplicationStatus.APPROVED:
+                await notification_service.send_application_approved(
+                    user_email=tenant['email'],
+                    user_name=tenant['full_name'],
+                    property_title=property_doc['title'],
+                    property_id=property_doc['id']
+                )
+            elif new_status == ApplicationStatus.REJECTED:
+                await notification_service.send_application_rejected(
+                    user_email=tenant['email'],
+                    user_name=tenant['full_name'],
+                    property_title=property_doc['title'],
+                    reason=admin_notes
+                )
+    except Exception as e:
+        logger.error(f"Failed to send application status notification: {str(e)}")
+    
     return {
         "message": "Application status updated successfully",
         "status": new_status
