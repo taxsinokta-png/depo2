@@ -2199,7 +2199,22 @@ function App() {
         <BrowserRouter>
           <Navigation />
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={
+              <div className="min-h-screen bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+                  <h1 className="text-6xl font-bold mb-6">Evim Kirada</h1>
+                  <p className="text-2xl mb-8">Türkiye'nin Akıllı Kiralama Platformu</p>
+                  <div className="flex justify-center gap-4">
+                    <Link to="/properties">
+                      <Button size="lg" variant="secondary">İlan Ara</Button>
+                    </Link>
+                    <Link to="/login">
+                      <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-indigo-600">Giriş Yap</Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            } />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/properties" element={<PropertiesPage />} />
             <Route 
