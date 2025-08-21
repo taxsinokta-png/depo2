@@ -111,6 +111,111 @@ const PropertyDetailPage = () => {
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+  }
+
+  if (!property) {
+    return <div className="min-h-screen flex items-center justify-center">İlan bulunamadı</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Card>
+              <CardContent className="p-0">
+                <div className="aspect-video bg-gray-200 rounded-t-lg">
+                  {property.images && property.images[0] ? (
+                    <img
+                      src={`${BACKEND_URL}${property.images[0]}`}
+                      alt={property.title}
+                      className="w-full h-full object-cover rounded-t-lg"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <Home className="h-24 w-24 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-6">
+                  <h1 className="text-3xl font-bold mb-4">{property.title}</h1>
+                  
+                  <div className="flex items-center text-gray-600 mb-4">
+                    <MapPin className="h-5 w-5 mr-2" />
+                    <span>{property.address}, {property.district}, {property.city}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <Bed className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.rooms}</div>
+                      <div className="text-sm text-gray-600">Oda</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <Square className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.area}m²</div>
+                      <div className="text-sm text-gray-600">Alan</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <DollarSign className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.price.toLocaleString('tr-TR')} ₺</div>
+                      <div className="text-sm text-gray-600">Aylık</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <DollarSign className="h-6 w-6 mx-auto mb-2 text-gray-600" />
+                      <div className="font-semibold">{property.deposit.toLocaleString('tr-TR')} ₺</div>
+                      <div className="text-sm text-gray-600">Depozito</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <h3 className="text-xl font-semibold mb-3">Açıklama</h3>
+                    <p className="text-gray-700">{property.description}</p>
+                  </div>
+                  
+                  {property.amenities && property.amenities.length > 0 && (
+                    <div>
+                      <h3 className="text-xl font-semibold mb-3">Özellikler</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {property.amenities.map((amenity, index) => (
+                          <Badge key={index} variant="secondary">{amenity}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div>
+            <Card className="sticky top-8">
+              <CardHeader>
+                <CardTitle>Başvuru Yap</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {user && user.role === 'tenant' ? (
+                  <ApplicationForm propertyId={property.id} />
+                ) : (
+                  <div className="text-center">
+                    <p className="mb-4">Başvuru yapmak için kiracı olarak giriş yapmanız gerekir.</p>
+                    <Link to="/login">
+                      <Button className="w-full">Giriş Yap</Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Navigation Component
 const Navigation = () => {
   const { user, logout } = useAuth();
