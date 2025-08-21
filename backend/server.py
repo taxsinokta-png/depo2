@@ -19,6 +19,7 @@ import shutil
 import aiofiles
 from PIL import Image
 import io
+from notifications import notification_service
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
